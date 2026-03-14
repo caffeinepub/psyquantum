@@ -1,0 +1,56 @@
+import { Skeleton } from "@/components/ui/skeleton";
+import ArticleCard from "../components/ArticleCard";
+import ScrollReveal from "../components/ScrollReveal";
+import { useGetExplainedArticles } from "../hooks/useQueries";
+
+const SKELETON_KEYS = ["sk-1", "sk-2", "sk-3", "sk-4"];
+
+export default function Explained() {
+  const { data: articles, isLoading } = useGetExplainedArticles();
+
+  return (
+    <main className="min-h-screen pt-24 pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <ScrollReveal>
+          <div className="mb-16 max-w-2xl">
+            <p className="text-secondary font-mono text-sm mb-3">
+              {"// story-based explanations"}
+            </p>
+            <h1 className="font-display font-extrabold text-5xl sm:text-6xl text-foreground mb-4">
+              Explained
+            </h1>
+            <p className="text-muted-foreground text-lg leading-relaxed">
+              Complex ideas told through narrative. Immersive, accessible, and
+              designed to make you think differently.
+            </p>
+          </div>
+        </ScrollReveal>
+
+        {isLoading ? (
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            data-ocid="explained.loading_state"
+          >
+            {SKELETON_KEYS.map((k) => (
+              <Skeleton key={k} className="h-64 rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(articles ?? []).map((article, i) => (
+              <ScrollReveal key={article.id.toString()} delay={i * 80}>
+                <ArticleCard article={article} index={i} type="explained" />
+              </ScrollReveal>
+            ))}
+          </div>
+        )}
+
+        {!isLoading && (articles ?? []).length === 0 && (
+          <div className="text-center py-20" data-ocid="explained.empty_state">
+            <p className="text-muted-foreground">No explained articles yet.</p>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
