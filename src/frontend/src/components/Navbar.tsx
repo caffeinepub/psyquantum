@@ -1,6 +1,10 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useGetLogoUrl } from "../hooks/useQueries";
+
+const DEFAULT_LOGO =
+  "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
 const navLinks = [
   { label: "Home", to: "/", ocid: "nav.home_link" },
@@ -14,6 +18,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { data: logoUrl } = useGetLogoUrl();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -24,6 +29,8 @@ export default function Navbar() {
   useEffect(() => {
     setOpen(false);
   });
+
+  const logo = logoUrl || DEFAULT_LOGO;
 
   return (
     <header
@@ -40,7 +47,7 @@ export default function Navbar() {
           >
             <div className="flex items-center justify-center w-10 h-10 overflow-hidden rounded-lg border border-border/50 bg-card/50">
               <img
-                src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
+                src={logo}
                 alt="PsyQuantum logo"
                 className="w-full h-full object-contain"
                 style={{ display: "block" }}

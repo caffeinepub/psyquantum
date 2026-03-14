@@ -6,6 +6,7 @@ import {
   seedConceptArticles,
   seedExplainedArticles,
 } from "../data/articles";
+import type { Project, ProjectStatus } from "../types/project";
 import { useActor } from "./useActor";
 
 function toArticle(s: SeedArticle): Article {
@@ -209,6 +210,134 @@ export function useDeleteArticle() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
+    },
+  });
+}
+
+// ─── Logo ────────────────────────────────────────────────────────────────────
+
+const DEFAULT_LOGO =
+  "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
+
+export function useGetLogoUrl() {
+  const { actor, isFetching } = useActor();
+  return useQuery<string>({
+    queryKey: ["logoUrl"],
+    queryFn: async () => {
+      if (!actor) return DEFAULT_LOGO;
+      try {
+        const url = await (actor as any).getLogoUrl();
+        return url || DEFAULT_LOGO;
+      } catch {
+        return DEFAULT_LOGO;
+      }
+    },
+    enabled: !isFetching,
+    placeholderData: DEFAULT_LOGO,
+  });
+}
+
+export function useSetLogoUrl() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (url: string) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).setLogoUrl(url);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["logoUrl"] });
+    },
+  });
+}
+
+// ─── Projects ────────────────────────────────────────────────────────────────
+
+export function useGetProjects() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      if (!actor) return [];
+      try {
+        return await (actor as any).getProjects();
+      } catch {
+        return [];
+      }
+    },
+    enabled: !isFetching,
+    placeholderData: [],
+  });
+}
+
+export function useCreateProject() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      description: string;
+      status: ProjectStatus;
+      tags: string[];
+      link: string;
+      displayOrder: bigint;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).createProject(
+        data.title,
+        data.description,
+        data.status,
+        data.tags,
+        data.link,
+        data.displayOrder,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useUpdateProject() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      id: bigint;
+      title: string;
+      description: string;
+      status: ProjectStatus;
+      tags: string[];
+      link: string;
+      displayOrder: bigint;
+    }) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).updateProject(
+        data.id,
+        data.title,
+        data.description,
+        data.status,
+        data.tags,
+        data.link,
+        data.displayOrder,
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).deleteProject(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }

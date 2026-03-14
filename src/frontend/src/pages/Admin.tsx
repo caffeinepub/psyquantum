@@ -8,10 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronDown,
   ChevronUp,
+  ImageIcon,
   Loader2,
   LogIn,
   LogOut,
@@ -21,19 +23,28 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useClaimFirstAdmin,
   useCreateArticle,
+  useCreateProject,
   useDeleteArticle,
+  useDeleteProject,
   useGetArticles,
+  useGetLogoUrl,
+  useGetProjects,
   useIsAdmin,
   useIsAdminClaimed,
+  useSetLogoUrl,
   useUpdateArticle,
+  useUpdateProject,
 } from "../hooks/useQueries";
+import type { Project, ProjectStatus } from "../types/project";
+
+// ─── Article Form ─────────────────────────────────────────────────────────────
 
 interface ArticleFormData {
   title: string;
@@ -44,7 +55,7 @@ interface ArticleFormData {
   displayOrder: string;
 }
 
-const defaultForm: ArticleFormData = {
+const defaultArticleForm: ArticleFormData = {
   title: "",
   description: "",
   content: [""],
@@ -105,9 +116,9 @@ function ArticleForm({
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="md:col-span-2 space-y-2">
-          <Label htmlFor="title">Title</Label>
+          <Label htmlFor="art-title">Title</Label>
           <Input
-            id="title"
+            id="art-title"
             data-ocid="admin.input"
             value={form.title}
             onChange={(e) => updateField("title", e.target.value)}
@@ -115,11 +126,10 @@ function ArticleForm({
             required
           />
         </div>
-
         <div className="md:col-span-2 space-y-2">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="art-description">Description</Label>
           <Textarea
-            id="description"
+            id="art-description"
             data-ocid="admin.textarea"
             value={form.description}
             onChange={(e) => updateField("description", e.target.value)}
@@ -128,7 +138,6 @@ function ArticleForm({
             required
           />
         </div>
-
         <div className="space-y-2">
           <Label>Type</Label>
           <Select
@@ -144,21 +153,19 @@ function ArticleForm({
             </SelectContent>
           </Select>
         </div>
-
         <div className="space-y-2">
-          <Label htmlFor="author">Author</Label>
+          <Label htmlFor="art-author">Author</Label>
           <Input
-            id="author"
+            id="art-author"
             value={form.author}
             onChange={(e) => updateField("author", e.target.value)}
             placeholder="Author name"
           />
         </div>
-
         <div className="space-y-2">
-          <Label htmlFor="displayOrder">Display Order</Label>
+          <Label htmlFor="art-order">Display Order</Label>
           <Input
-            id="displayOrder"
+            id="art-order"
             type="number"
             value={form.displayOrder}
             onChange={(e) => updateField("displayOrder", e.target.value)}
@@ -219,25 +226,172 @@ function ArticleForm({
   );
 }
 
+// ─── Project Form ─────────────────────────────────────────────────────────────
+
+interface ProjectFormData {
+  title: string;
+  description: string;
+  status: ProjectStatus;
+  tags: string;
+  link: string;
+  displayOrder: string;
+}
+
+const defaultProjectForm: ProjectFormData = {
+  title: "",
+  description: "",
+  status: "active",
+  tags: "",
+  link: "",
+  displayOrder: "0",
+};
+
+function ProjectForm({
+  initial,
+  onSubmit,
+  onCancel,
+  isPending,
+  submitLabel,
+}: {
+  initial: ProjectFormData;
+  onSubmit: (data: ProjectFormData) => void;
+  onCancel: () => void;
+  isPending: boolean;
+  submitLabel: string;
+}) {
+  const [form, setForm] = useState<ProjectFormData>(initial);
+
+  function updateField<K extends keyof ProjectFormData>(
+    key: K,
+    value: ProjectFormData[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  return (
+    <form
+      data-ocid="admin.project_form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(form);
+      }}
+      className="space-y-6"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="proj-title">Title</Label>
+          <Input
+            id="proj-title"
+            value={form.title}
+            onChange={(e) => updateField("title", e.target.value)}
+            placeholder="Project title"
+            required
+          />
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="proj-description">Description</Label>
+          <Textarea
+            id="proj-description"
+            value={form.description}
+            onChange={(e) => updateField("description", e.target.value)}
+            placeholder="Short description"
+            rows={3}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select
+            value={form.status}
+            onValueChange={(v) => updateField("status", v as ProjectStatus)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inProgress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="proj-order">Display Order</Label>
+          <Input
+            id="proj-order"
+            type="number"
+            value={form.displayOrder}
+            onChange={(e) => updateField("displayOrder", e.target.value)}
+          />
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="proj-tags">Tags (comma-separated)</Label>
+          <Input
+            id="proj-tags"
+            value={form.tags}
+            onChange={(e) => updateField("tags", e.target.value)}
+            placeholder="AI, Robotics, Python"
+          />
+        </div>
+        <div className="md:col-span-2 space-y-2">
+          <Label htmlFor="proj-link">Link (optional)</Label>
+          <Input
+            id="proj-link"
+            value={form.link}
+            onChange={(e) => updateField("link", e.target.value)}
+            placeholder="https://github.com/..."
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─── Main Admin Page ─────────────────────────────────────────────────────────
+
 export default function Admin() {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
   const { data: adminClaimed, isLoading: adminClaimedLoading } =
     useIsAdminClaimed();
   const { data: articles, isLoading: articlesLoading } = useGetArticles();
-  const createMutation = useCreateArticle();
-  const updateMutation = useUpdateArticle();
-  const deleteMutation = useDeleteArticle();
-  const claimAdminMutation = useClaimFirstAdmin();
+  const { data: projects, isLoading: projectsLoading } = useGetProjects();
+  const { data: logoUrl } = useGetLogoUrl();
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingId, setEditingId] = useState<bigint | null>(null);
-  const [expandedId, setExpandedId] = useState<bigint | null>(null);
+  const createArticleMutation = useCreateArticle();
+  const updateArticleMutation = useUpdateArticle();
+  const deleteArticleMutation = useDeleteArticle();
+  const claimAdminMutation = useClaimFirstAdmin();
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
+  const setLogoMutation = useSetLogoUrl();
+
+  const [showCreateArticle, setShowCreateArticle] = useState(false);
+  const [editingArticleId, setEditingArticleId] = useState<bigint | null>(null);
+  const [expandedArticleId, setExpandedArticleId] = useState<bigint | null>(
+    null,
+  );
+
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<bigint | null>(null);
+
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!identity;
   const isLoggingIn = loginStatus === "logging-in";
 
-  function getEditInitial(article: Article): ArticleFormData {
+  function getEditArticleInitial(article: Article): ArticleFormData {
     return {
       title: article.title,
       description: article.description,
@@ -248,9 +402,20 @@ export default function Admin() {
     };
   }
 
-  async function handleCreate(data: ArticleFormData) {
+  function getEditProjectInitial(project: Project): ProjectFormData {
+    return {
+      title: project.title,
+      description: project.description,
+      status: project.status,
+      tags: project.tags.join(", "),
+      link: project.link,
+      displayOrder: project.displayOrder.toString(),
+    };
+  }
+
+  async function handleCreateArticle(data: ArticleFormData) {
     try {
-      await createMutation.mutateAsync({
+      await createArticleMutation.mutateAsync({
         title: data.title,
         description: data.description,
         content: data.content.filter((p) => p.trim()),
@@ -259,15 +424,15 @@ export default function Admin() {
         displayOrder: BigInt(Number.parseInt(data.displayOrder) || 0),
       });
       toast.success("Article created!");
-      setShowCreate(false);
+      setShowCreateArticle(false);
     } catch {
       toast.error("Failed to create article.");
     }
   }
 
-  async function handleUpdate(id: bigint, data: ArticleFormData) {
+  async function handleUpdateArticle(id: bigint, data: ArticleFormData) {
     try {
-      await updateMutation.mutateAsync({
+      await updateArticleMutation.mutateAsync({
         id,
         title: data.title,
         description: data.description,
@@ -277,19 +442,113 @@ export default function Admin() {
         displayOrder: BigInt(Number.parseInt(data.displayOrder) || 0),
       });
       toast.success("Article updated!");
-      setEditingId(null);
+      setEditingArticleId(null);
     } catch {
       toast.error("Failed to update article.");
     }
   }
 
-  async function handleDelete(id: bigint) {
+  async function handleDeleteArticle(id: bigint) {
     if (!confirm("Delete this article? This cannot be undone.")) return;
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteArticleMutation.mutateAsync(id);
       toast.success("Article deleted.");
     } catch {
       toast.error("Failed to delete article.");
+    }
+  }
+
+  async function handleCreateProject(data: ProjectFormData) {
+    try {
+      await createProjectMutation.mutateAsync({
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        tags: data.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        link: data.link,
+        displayOrder: BigInt(Number.parseInt(data.displayOrder) || 0),
+      });
+      toast.success("Project created!");
+      setShowCreateProject(false);
+    } catch {
+      toast.error("Failed to create project.");
+    }
+  }
+
+  async function handleUpdateProject(id: bigint, data: ProjectFormData) {
+    try {
+      await updateProjectMutation.mutateAsync({
+        id,
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        tags: data.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        link: data.link,
+        displayOrder: BigInt(Number.parseInt(data.displayOrder) || 0),
+      });
+      toast.success("Project updated!");
+      setEditingProjectId(null);
+    } catch {
+      toast.error("Failed to update project.");
+    }
+  }
+
+  async function handleDeleteProject(id: bigint) {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    try {
+      await deleteProjectMutation.mutateAsync(id);
+      toast.success("Project deleted.");
+    } catch {
+      toast.error("Failed to delete project.");
+    }
+  }
+
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 400;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) {
+            height = Math.round((height * MAX) / width);
+            width = MAX;
+          } else {
+            width = Math.round((width * MAX) / height);
+            height = MAX;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, width, height);
+        setLogoPreview(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSaveLogo() {
+    if (!logoPreview) return;
+    try {
+      await setLogoMutation.mutateAsync(logoPreview);
+      toast.success("Logo updated!");
+      setLogoPreview(null);
+    } catch {
+      toast.error("Failed to update logo.");
     }
   }
 
@@ -321,7 +580,7 @@ export default function Admin() {
             Admin Panel
           </h1>
           <p className="text-muted-foreground mb-8">
-            Login to manage articles.
+            Login to manage your website.
           </p>
           <Button
             data-ocid="admin.login_button"
@@ -353,9 +612,7 @@ export default function Admin() {
     );
   }
 
-  // Logged in but not admin
   if (!isAdmin) {
-    // Admin not yet claimed -- let this user become admin
     if (!adminClaimed) {
       return (
         <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
@@ -368,7 +625,7 @@ export default function Admin() {
             </h1>
             <p className="text-muted-foreground mb-2">
               No admin has been set up yet. As the site owner, click below to
-              claim admin access for your account.
+              claim admin access.
             </p>
             <p className="text-xs text-muted-foreground mb-8">
               This can only be done once. After claiming, only your account will
@@ -405,7 +662,6 @@ export default function Admin() {
       );
     }
 
-    // Admin already claimed by someone else
     return (
       <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
         <div className="text-center max-w-md px-4">
@@ -426,6 +682,9 @@ export default function Admin() {
   const sortedArticles = [...(articles ?? [])].sort(
     (a, b) => Number(a.displayOrder) - Number(b.displayOrder),
   );
+  const sortedProjects = [...(projects ?? [])].sort(
+    (a, b) => Number(a.displayOrder) - Number(b.displayOrder),
+  );
 
   return (
     <main className="min-h-screen pt-24 pb-20">
@@ -434,127 +693,348 @@ export default function Admin() {
           <div>
             <p className="text-primary font-mono text-sm mb-2">{"// admin"}</p>
             <h1 className="font-display font-bold text-4xl text-foreground">
-              Article Management
+              Admin Panel
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              data-ocid="admin.create_button"
-              onClick={() => setShowCreate(true)}
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" /> New Article
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={clear}
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="outline" size="icon" onClick={clear} title="Logout">
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
 
-        {showCreate && (
-          <div className="mb-8 p-6 rounded-2xl border border-border bg-card/30">
-            <h2 className="font-display font-bold text-xl text-foreground mb-6">
-              Create New Article
-            </h2>
-            <ArticleForm
-              initial={defaultForm}
-              onSubmit={handleCreate}
-              onCancel={() => setShowCreate(false)}
-              isPending={createMutation.isPending}
-              submitLabel="Create Article"
-            />
-          </div>
-        )}
+        <Tabs defaultValue="articles">
+          <TabsList className="mb-8 bg-card/40 border border-border">
+            <TabsTrigger value="articles" data-ocid="admin.articles.tab">
+              Articles
+            </TabsTrigger>
+            <TabsTrigger value="projects" data-ocid="admin.projects.tab">
+              Projects
+            </TabsTrigger>
+            <TabsTrigger value="logo" data-ocid="admin.logo.tab">
+              Logo
+            </TabsTrigger>
+          </TabsList>
 
-        {articlesLoading ? (
-          <div className="text-center py-12" data-ocid="admin.loading_state">
-            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {sortedArticles.map((article, idx) => (
-              <div
-                key={article.id.toString()}
-                className="border border-border rounded-xl bg-card/30 overflow-hidden"
+          {/* ── Articles Tab ── */}
+          <TabsContent value="articles">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display font-bold text-2xl text-foreground">
+                Articles
+              </h2>
+              <Button
+                data-ocid="admin.article_create_button"
+                onClick={() => setShowCreateArticle(true)}
+                className="gap-2"
               >
-                <div className="flex items-center gap-4 p-4">
-                  <button
-                    type="button"
-                    className="flex-1 text-left flex items-center gap-4 min-w-0"
-                    onClick={() =>
-                      setExpandedId(
-                        expandedId === article.id ? null : article.id,
-                      )
-                    }
+                <Plus className="w-4 h-4" /> New Article
+              </Button>
+            </div>
+
+            {showCreateArticle && (
+              <div className="mb-8 p-6 rounded-2xl border border-border bg-card/30">
+                <h3 className="font-display font-bold text-xl text-foreground mb-6">
+                  Create New Article
+                </h3>
+                <ArticleForm
+                  initial={defaultArticleForm}
+                  onSubmit={handleCreateArticle}
+                  onCancel={() => setShowCreateArticle(false)}
+                  isPending={createArticleMutation.isPending}
+                  submitLabel="Create Article"
+                />
+              </div>
+            )}
+
+            {articlesLoading ? (
+              <div
+                className="text-center py-12"
+                data-ocid="admin.loading_state"
+              >
+                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedArticles.map((article, idx) => (
+                  <div
+                    key={article.id.toString()}
+                    className="border border-border rounded-xl bg-card/30 overflow-hidden"
                   >
-                    <span className="text-xs font-mono text-muted-foreground w-6">
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {article.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {article.articleType} · {article.author}
-                      </p>
+                    <div className="flex items-center gap-4 p-4">
+                      <button
+                        type="button"
+                        className="flex-1 text-left flex items-center gap-4 min-w-0"
+                        onClick={() =>
+                          setExpandedArticleId(
+                            expandedArticleId === article.id
+                              ? null
+                              : article.id,
+                          )
+                        }
+                      >
+                        <span className="text-xs font-mono text-muted-foreground w-6">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">
+                            {article.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {article.articleType} · {article.author}
+                          </p>
+                        </div>
+                        {expandedArticleId === article.id ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-ocid={`admin.article_edit_button.${idx + 1}`}
+                          onClick={() => setEditingArticleId(article.id)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-ocid={`admin.article_delete_button.${idx + 1}`}
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteArticle(article.id)}
+                          disabled={deleteArticleMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    {expandedId === article.id ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+
+                    {editingArticleId === article.id && (
+                      <div className="px-4 pb-4 border-t border-border pt-4">
+                        <ArticleForm
+                          initial={getEditArticleInitial(article)}
+                          onSubmit={(data) =>
+                            handleUpdateArticle(article.id, data)
+                          }
+                          onCancel={() => setEditingArticleId(null)}
+                          isPending={updateArticleMutation.isPending}
+                          submitLabel="Save Changes"
+                        />
+                      </div>
                     )}
-                  </button>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-ocid={`admin.edit_button.${idx + 1}`}
-                      onClick={() => setEditingId(article.id)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      data-ocid={`admin.delete_button.${idx + 1}`}
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(article.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
-                </div>
+                ))}
 
-                {editingId === article.id && (
-                  <div className="px-4 pb-4 border-t border-border pt-4">
-                    <ArticleForm
-                      initial={getEditInitial(article)}
-                      onSubmit={(data) => handleUpdate(article.id, data)}
-                      onCancel={() => setEditingId(null)}
-                      isPending={updateMutation.isPending}
-                      submitLabel="Save Changes"
-                    />
+                {sortedArticles.length === 0 && (
+                  <div
+                    className="text-center py-20"
+                    data-ocid="admin.empty_state"
+                  >
+                    <p className="text-muted-foreground">
+                      No articles yet. Create one above.
+                    </p>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+            )}
+          </TabsContent>
 
-        {!articlesLoading && sortedArticles.length === 0 && (
-          <div className="text-center py-20" data-ocid="admin.empty_state">
-            <p className="text-muted-foreground">
-              No articles yet. Create one above.
-            </p>
-          </div>
-        )}
+          {/* ── Projects Tab ── */}
+          <TabsContent value="projects">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-display font-bold text-2xl text-foreground">
+                Projects
+              </h2>
+              <Button
+                data-ocid="admin.project_create_button"
+                onClick={() => setShowCreateProject(true)}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" /> New Project
+              </Button>
+            </div>
+
+            {showCreateProject && (
+              <div className="mb-8 p-6 rounded-2xl border border-border bg-card/30">
+                <h3 className="font-display font-bold text-xl text-foreground mb-6">
+                  Create New Project
+                </h3>
+                <ProjectForm
+                  initial={defaultProjectForm}
+                  onSubmit={handleCreateProject}
+                  onCancel={() => setShowCreateProject(false)}
+                  isPending={createProjectMutation.isPending}
+                  submitLabel="Create Project"
+                />
+              </div>
+            )}
+
+            {projectsLoading ? (
+              <div
+                className="text-center py-12"
+                data-ocid="admin.loading_state"
+              >
+                <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedProjects.map((project, idx) => (
+                  <div
+                    key={project.id.toString()}
+                    className="border border-border rounded-xl bg-card/30 overflow-hidden"
+                  >
+                    <div className="flex items-center gap-4 p-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {project.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {project.status} · order{" "}
+                          {project.displayOrder.toString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-ocid={`admin.project_edit_button.${idx + 1}`}
+                          onClick={() =>
+                            setEditingProjectId(
+                              editingProjectId === project.id
+                                ? null
+                                : project.id,
+                            )
+                          }
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-ocid={`admin.project_delete_button.${idx + 1}`}
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteProject(project.id)}
+                          disabled={deleteProjectMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {editingProjectId === project.id && (
+                      <div className="px-4 pb-4 border-t border-border pt-4">
+                        <ProjectForm
+                          initial={getEditProjectInitial(project)}
+                          onSubmit={(data) =>
+                            handleUpdateProject(project.id, data)
+                          }
+                          onCancel={() => setEditingProjectId(null)}
+                          isPending={updateProjectMutation.isPending}
+                          submitLabel="Save Changes"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {sortedProjects.length === 0 && (
+                  <div
+                    className="text-center py-20"
+                    data-ocid="admin.project.empty_state"
+                  >
+                    <p className="text-muted-foreground">
+                      No projects yet. Create one above.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Logo Tab ── */}
+          <TabsContent value="logo">
+            <div className="max-w-lg">
+              <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+                Website Logo
+              </h2>
+
+              <div className="space-y-6">
+                <div>
+                  <Label className="mb-3 block">Current Logo</Label>
+                  <div className="w-32 h-32 rounded-xl border border-border bg-card/30 flex items-center justify-center overflow-hidden">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Current logo"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <ImageIcon className="w-10 h-10 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-3 block">Upload New Logo</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-ocid="admin.logo_upload_button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    Choose Image
+                  </Button>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Images are automatically resized for storage.
+                  </p>
+                </div>
+
+                {logoPreview && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="mb-3 block">Preview</Label>
+                      <div className="w-32 h-32 rounded-xl border border-primary/40 bg-card/30 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={logoPreview}
+                          alt="Logo preview"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        data-ocid="admin.logo_save_button"
+                        onClick={handleSaveLogo}
+                        disabled={setLogoMutation.isPending}
+                        className="gap-2"
+                      >
+                        {setLogoMutation.isPending && (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        )}
+                        {setLogoMutation.isPending ? "Saving..." : "Save Logo"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setLogoPreview(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
