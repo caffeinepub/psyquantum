@@ -154,9 +154,6 @@ actor {
       ("Concept 4", "Short desc 4", #concept : ArticleType),
       ("Concept 5", "Short desc 5", #concept : ArticleType),
       ("Explained 1", "Short desc 6", #explained : ArticleType),
-      ("Explained 2", "Short desc 7", #explained : ArticleType),
-      ("Explained 3", "Short desc 8", #explained : ArticleType),
-      ("Explained 4", "Short desc 9", #explained : ArticleType),
     ];
 
     for (entry in seedData.values()) {

@@ -139,24 +139,38 @@ export default function About() {
               )}
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <a
-                href="https://instagram.com/psi___quantam"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
-              >
-                <SiInstagram className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
-                <span className="font-medium">@psi___quantam</span>
-              </a>
-              <a
-                href="mailto:piyushyadavballia751@gmail.com"
-                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
-              >
-                <Mail className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
-                <span className="font-medium">
-                  piyushyadavballia751@gmail.com
-                </span>
-              </a>
+              {(() => {
+                const ig = t(
+                  "about.contact.instagram",
+                  "psi___quantam",
+                ).replace(/^@/, "");
+                return (
+                  <a
+                    href={`https://instagram.com/${ig}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
+                  >
+                    <SiInstagram className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">@{ig}</span>
+                  </a>
+                );
+              })()}
+              {(() => {
+                const email = t(
+                  "about.contact.email",
+                  "piyushyadavballia751@gmail.com",
+                );
+                return (
+                  <a
+                    href={`mailto:${email}`}
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
+                  >
+                    <Mail className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">{email}</span>
+                  </a>
+                );
+              })()}
             </div>
           </section>
         </ScrollReveal>

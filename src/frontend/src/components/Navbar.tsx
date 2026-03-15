@@ -34,9 +34,21 @@ const navBase = [
   },
 ];
 
+// Show Admin link only when accessed via Caffeine draft/preview or localhost
+function isOwnerContext(): boolean {
+  const host = window.location.hostname;
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".caffeine.ai") ||
+    host === "caffeine.ai"
+  );
+}
+
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const location = useLocation();
   const { data: logoUrl } = useGetLogoUrl();
   const { data: siteTexts = {} } = useGetAllSiteTexts();
@@ -48,6 +60,10 @@ export default function Navbar() {
     ...l,
     label: t(l.key, l.defaultLabel),
   }));
+
+  useEffect(() => {
+    setShowAdmin(isOwnerContext());
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -104,14 +120,16 @@ export default function Navbar() {
                 </Link>
               </li>
             ))}
-            <li>
-              <Link
-                to="/admin"
-                className="ml-2 px-4 py-2 rounded-md text-sm font-medium border border-primary/40 text-primary hover:bg-primary/10 transition-colors duration-200"
-              >
-                Admin
-              </Link>
-            </li>
+            {showAdmin && (
+              <li>
+                <Link
+                  to="/admin"
+                  className="ml-2 px-4 py-2 rounded-md text-sm font-medium border border-primary/40 text-primary hover:bg-primary/10 transition-colors duration-200"
+                >
+                  Admin
+                </Link>
+              </li>
+            )}
           </ul>
 
           <button
@@ -142,14 +160,16 @@ export default function Navbar() {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link
-                  to="/admin"
-                  className="block px-4 py-3 rounded-md text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-                >
-                  Admin
-                </Link>
-              </li>
+              {showAdmin && (
+                <li>
+                  <Link
+                    to="/admin"
+                    className="block px-4 py-3 rounded-md text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    Admin
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         )}

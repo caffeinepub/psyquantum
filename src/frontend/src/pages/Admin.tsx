@@ -23,7 +23,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
 import { ProjectStatus } from "../backend";
@@ -49,6 +49,27 @@ import type { Project } from "../types/project";
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 const ADMIN_PASSWORD_KEY = "psq_admin_pw";
+const BRUTE_ATTEMPTS_KEY = "psq_login_attempts";
+const BRUTE_BLOCKED_UNTIL_KEY = "psq_blocked_until";
+
+function getBlockDuration(attempts: number): number {
+  if (attempts >= 30) return 30 * 24 * 60 * 60 * 1000; // 30 days
+  if (attempts >= 10) return 20 * 60 * 1000; // 20 minutes
+  if (attempts >= 5) return 10 * 60 * 1000; // 10 minutes
+  return 0;
+}
+
+function formatBlockTime(ms: number): string {
+  const totalSec = Math.ceil(ms / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (days > 0) return `${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `${hours}h ${mins}m ${secs}s`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
 
 // ─── Article Form ─────────────────────────────────────────────────────────────
 
@@ -738,6 +759,20 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             siteTexts={siteTexts}
             adminSecret={adminSecret}
           />
+          <SiteTextField
+            label="Instagram Handle (without @)"
+            textKey="about.contact.instagram"
+            placeholder="psi___quantam"
+            siteTexts={siteTexts}
+            adminSecret={adminSecret}
+          />
+          <SiteTextField
+            label="Email Address"
+            textKey="about.contact.email"
+            placeholder="piyushyadavballia751@gmail.com"
+            siteTexts={siteTexts}
+            adminSecret={adminSecret}
+          />
         </div>
       </div>
     </div>
@@ -755,19 +790,90 @@ export default function Admin() {
     () => !!sessionStorage.getItem(ADMIN_PASSWORD_KEY),
   );
   const [passwordInput, setPasswordInput] = useState("");
+  const [blockTimeLeft, setBlockTimeLeft] = useState<number>(0);
   const checkPasswordMutation = useCheckAdminPassword();
+
+  // Countdown timer for block
+  useEffect(() => {
+    const raw = localStorage.getItem(BRUTE_BLOCKED_UNTIL_KEY);
+    if (!raw) return;
+    const until = Number.parseInt(raw, 10);
+    const now = Date.now();
+    if (until <= now) {
+      localStorage.removeItem(BRUTE_BLOCKED_UNTIL_KEY);
+      return;
+    }
+    setBlockTimeLeft(until - now);
+    const interval = setInterval(() => {
+      const remaining =
+        Number.parseInt(
+          localStorage.getItem(BRUTE_BLOCKED_UNTIL_KEY) ?? "0",
+          10,
+        ) - Date.now();
+      if (remaining <= 0) {
+        clearInterval(interval);
+        localStorage.removeItem(BRUTE_BLOCKED_UNTIL_KEY);
+        setBlockTimeLeft(0);
+      } else {
+        setBlockTimeLeft(remaining);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleLogin() {
     if (!passwordInput.trim()) return;
+
+    // Check if currently blocked
+    const blockedUntilRaw = localStorage.getItem(BRUTE_BLOCKED_UNTIL_KEY);
+    if (blockedUntilRaw) {
+      const blockedUntil = Number.parseInt(blockedUntilRaw, 10);
+      if (Date.now() < blockedUntil) {
+        const remaining = blockedUntil - Date.now();
+        toast.error(
+          `Too many failed attempts. Try again in ${formatBlockTime(remaining)}.`,
+        );
+        return;
+      }
+      localStorage.removeItem(BRUTE_BLOCKED_UNTIL_KEY);
+    }
+
     try {
       const ok = await checkPasswordMutation.mutateAsync(passwordInput.trim());
       if (ok) {
+        localStorage.removeItem(BRUTE_ATTEMPTS_KEY);
+        localStorage.removeItem(BRUTE_BLOCKED_UNTIL_KEY);
+        setBlockTimeLeft(0);
         sessionStorage.setItem(ADMIN_PASSWORD_KEY, passwordInput.trim());
         setAdminSecret(passwordInput.trim());
         setIsAdmin(true);
         toast.success("Welcome to the admin panel!");
       } else {
-        toast.error("Incorrect password. Access denied.");
+        const prevAttempts = Number.parseInt(
+          localStorage.getItem(BRUTE_ATTEMPTS_KEY) ?? "0",
+          10,
+        );
+        const newAttempts = prevAttempts + 1;
+        localStorage.setItem(BRUTE_ATTEMPTS_KEY, String(newAttempts));
+
+        const blockDuration = getBlockDuration(newAttempts);
+        if (blockDuration > 0) {
+          const until = Date.now() + blockDuration;
+          localStorage.setItem(BRUTE_BLOCKED_UNTIL_KEY, String(until));
+          setBlockTimeLeft(blockDuration);
+          toast.error(
+            `Too many failed attempts. You are blocked for ${formatBlockTime(blockDuration)}.`,
+          );
+        } else {
+          const attemptsLeft = 5 - newAttempts;
+          if (attemptsLeft > 0) {
+            toast.error(
+              `Incorrect password. Access denied. (${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} left before temporary block)`,
+            );
+          } else {
+            toast.error("Incorrect password. Access denied.");
+          }
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -1027,18 +1133,57 @@ export default function Admin() {
 
   // ── Login screen ──
   if (!isAdmin) {
+    const isBlocked = blockTimeLeft > 0;
     return (
       <main className="min-h-screen pt-24 pb-20 flex items-center justify-center">
         <div className="text-center max-w-sm w-full px-4">
-          <div className="w-16 h-16 rounded-2xl border border-primary/30 flex items-center justify-center mx-auto mb-6 bg-primary/10">
-            <LogIn className="w-8 h-8 text-primary" />
+          <div
+            className={`w-16 h-16 rounded-2xl border flex items-center justify-center mx-auto mb-6 ${isBlocked ? "border-destructive/40 bg-destructive/10" : "border-primary/30 bg-primary/10"}`}
+          >
+            {isBlocked ? (
+              <svg
+                className="w-8 h-8 text-destructive"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+                role="img"
+              >
+                <title>Access blocked</title>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
+              </svg>
+            ) : (
+              <LogIn className="w-8 h-8 text-primary" />
+            )}
           </div>
           <h1 className="font-display font-bold text-3xl text-foreground mb-2">
             Admin Panel
           </h1>
-          <p className="text-muted-foreground mb-8">
-            Enter your password to access the admin panel.
-          </p>
+          {isBlocked ? (
+            <div className="mb-8">
+              <p className="text-destructive font-semibold mb-2">
+                Access Temporarily Blocked
+              </p>
+              <p className="text-muted-foreground text-sm mb-4">
+                Too many failed login attempts. Please wait before trying again.
+              </p>
+              <div
+                className="bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-3 text-destructive font-mono text-lg font-bold"
+                data-ocid="admin.block_timer"
+              >
+                {formatBlockTime(blockTimeLeft)}
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground mb-8">
+              Enter your password to access the admin panel.
+            </p>
+          )}
           <div className="flex flex-col gap-3 w-full">
             <Input
               type="password"
@@ -1050,13 +1195,16 @@ export default function Admin() {
               }}
               className="text-center"
               data-ocid="admin.password.input"
-              autoFocus
+              disabled={isBlocked}
+              autoFocus={!isBlocked}
             />
             <Button
               data-ocid="admin.login_button"
               onClick={handleLogin}
               disabled={
-                checkPasswordMutation.isPending || !passwordInput.trim()
+                checkPasswordMutation.isPending ||
+                !passwordInput.trim() ||
+                isBlocked
               }
               size="lg"
               className="gap-2 w-full"
@@ -1068,7 +1216,9 @@ export default function Admin() {
               )}
               {checkPasswordMutation.isPending
                 ? "Checking..."
-                : "Enter Admin Panel"}
+                : isBlocked
+                  ? "Access Blocked"
+                  : "Enter Admin Panel"}
             </Button>
           </div>
         </div>
