@@ -153,12 +153,25 @@ export function useForceResetAdmin() {
   });
 }
 
-// Check admin password locally -- no backend call needed, always works
-const ADMIN_PASSWORD = "psyquantum-reset-2026";
+// SHA-256 hash of the admin password — plain text is never stored in source
+const ADMIN_PASSWORD_HASH =
+  "bc6d1a775f06c02b22e307bd0acfdd355d1ee8658bf46e01372d278b7b8cd9ae";
+
+async function hashString(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(s),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function useCheckAdminPassword() {
   return useMutation({
     mutationFn: async (secret: string) => {
-      return secret === ADMIN_PASSWORD;
+      const h = await hashString(secret);
+      return h === ADMIN_PASSWORD_HASH;
     },
   });
 }

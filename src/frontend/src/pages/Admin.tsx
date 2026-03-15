@@ -767,7 +767,7 @@ export default function Admin() {
         setIsAdmin(true);
         toast.success("Welcome to the admin panel!");
       } else {
-        toast.error("Wrong password. Use: psyquantum-reset-2026");
+        toast.error("Incorrect password. Access denied.");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
