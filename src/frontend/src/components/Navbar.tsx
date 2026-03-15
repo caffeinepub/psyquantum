@@ -1,17 +1,37 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useGetLogoUrl } from "../hooks/useQueries";
+import { useGetAllSiteTexts, useGetLogoUrl } from "../hooks/useQueries";
 
 const DEFAULT_LOGO =
   "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
-const navLinks = [
-  { label: "Home", to: "/", ocid: "nav.home_link" },
-  { label: "Concepts", to: "/concepts", ocid: "nav.concepts_link" },
-  { label: "Explained", to: "/explained", ocid: "nav.explained_link" },
-  { label: "Projects", to: "/projects", ocid: "nav.projects_link" },
-  { label: "About", to: "/about", ocid: "nav.about_link" },
+const navBase = [
+  { key: "", defaultLabel: "Home", to: "/", ocid: "nav.home_link" },
+  {
+    key: "nav.concepts",
+    defaultLabel: "Concepts",
+    to: "/concepts",
+    ocid: "nav.concepts_link",
+  },
+  {
+    key: "nav.explained",
+    defaultLabel: "Explained",
+    to: "/explained",
+    ocid: "nav.explained_link",
+  },
+  {
+    key: "nav.projects",
+    defaultLabel: "Projects",
+    to: "/projects",
+    ocid: "nav.projects_link",
+  },
+  {
+    key: "nav.about",
+    defaultLabel: "About",
+    to: "/about",
+    ocid: "nav.about_link",
+  },
 ];
 
 export default function Navbar() {
@@ -19,6 +39,15 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { data: logoUrl } = useGetLogoUrl();
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
+
+  const t = (key: string, fallback: string) =>
+    key && siteTexts[key] ? siteTexts[key] : fallback;
+
+  const navLinks = navBase.map((l) => ({
+    ...l,
+    label: t(l.key, l.defaultLabel),
+  }));
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);

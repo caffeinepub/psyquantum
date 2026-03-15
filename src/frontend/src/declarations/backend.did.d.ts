@@ -22,6 +22,19 @@ export interface Article {
 }
 export type ArticleType = { 'concept' : null } |
   { 'explained' : null };
+export interface Project {
+  'id' : bigint,
+  'status' : ProjectStatus,
+  'title' : string,
+  'displayOrder' : bigint,
+  'link' : string,
+  'createdAt' : bigint,
+  'tags' : Array<string>,
+  'description' : string,
+}
+export type ProjectStatus = { 'active' : null } |
+  { 'completed' : null } |
+  { 'inProgress' : null };
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -29,23 +42,38 @@ export type UserRole = { 'admin' : null } |
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'claimFirstAdmin' : ActorMethod<[], boolean>,
   'createArticle' : ActorMethod<
     [string, string, Array<string>, ArticleType, string, bigint],
     bigint
   >,
+  'createProject' : ActorMethod<
+    [string, string, ProjectStatus, Array<string>, string, bigint],
+    bigint
+  >,
   'deleteArticle' : ActorMethod<[bigint], undefined>,
+  'deleteProject' : ActorMethod<[bigint], undefined>,
   'getArticle' : ActorMethod<[bigint], Article>,
   'getArticles' : ActorMethod<[], Array<Article>>,
   'getArticlesByType' : ActorMethod<[ArticleType], Array<Article>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCreatorImageUrl' : ActorMethod<[], string>,
+  'getLogoUrl' : ActorMethod<[], string>,
+  'getProjects' : ActorMethod<[], Array<Project>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'isAdminClaimed' : ActorMethod<[], boolean>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'setCreatorImageUrl' : ActorMethod<[string], undefined>,
+  'setLogoUrl' : ActorMethod<[string], undefined>,
+  'getSiteText' : ActorMethod<[string], string>,
+  'getAllSiteTexts' : ActorMethod<[], Array<[string, string]>>,
+  'setSiteText' : ActorMethod<[string, string], undefined>,
   'updateArticle' : ActorMethod<
     [bigint, string, string, Array<string>, ArticleType, string, bigint],
+    undefined
+  >,
+  'updateProject' : ActorMethod<
+    [bigint, string, string, ProjectStatus, Array<string>, string, bigint],
     undefined
   >,
 }

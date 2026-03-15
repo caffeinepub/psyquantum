@@ -17,6 +17,11 @@ export const ArticleType = IDL.Variant({
   'concept' : IDL.Null,
   'explained' : IDL.Null,
 });
+export const ProjectStatus = IDL.Variant({
+  'active' : IDL.Null,
+  'completed' : IDL.Null,
+  'inProgress' : IDL.Null,
+});
 export const Article = IDL.Record({
   'id' : IDL.Nat,
   'title' : IDL.Text,
@@ -28,30 +33,52 @@ export const Article = IDL.Record({
   'author' : IDL.Text,
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const Project = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : ProjectStatus,
+  'title' : IDL.Text,
+  'displayOrder' : IDL.Nat,
+  'link' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'tags' : IDL.Vec(IDL.Text),
+  'description' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'claimFirstAdmin' : IDL.Func([], [IDL.Bool], []),
   'createArticle' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Vec(IDL.Text), ArticleType, IDL.Text, IDL.Nat],
       [IDL.Nat],
       [],
     ),
+  'createProject' : IDL.Func(
+      [IDL.Text, IDL.Text, ProjectStatus, IDL.Vec(IDL.Text), IDL.Text, IDL.Nat],
+      [IDL.Nat],
+      [],
+    ),
   'deleteArticle' : IDL.Func([IDL.Nat], [], []),
+  'deleteProject' : IDL.Func([IDL.Nat], [], []),
   'getArticle' : IDL.Func([IDL.Nat], [Article], ['query']),
   'getArticles' : IDL.Func([], [IDL.Vec(Article)], ['query']),
   'getArticlesByType' : IDL.Func([ArticleType], [IDL.Vec(Article)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getCreatorImageUrl' : IDL.Func([], [IDL.Text], ['query']),
+  'getLogoUrl' : IDL.Func([], [IDL.Text], ['query']),
+  'getProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
-  'isAdminClaimed' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'setCreatorImageUrl' : IDL.Func([IDL.Text], [], []),
+  'setLogoUrl' : IDL.Func([IDL.Text], [], []),
+  'getSiteText' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
+  'getAllSiteTexts' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))], ['query']),
+  'setSiteText' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updateArticle' : IDL.Func(
       [
         IDL.Nat,
@@ -59,6 +86,19 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Vec(IDL.Text),
         ArticleType,
+        IDL.Text,
+        IDL.Nat,
+      ],
+      [],
+      [],
+    ),
+  'updateProject' : IDL.Func(
+      [
+        IDL.Nat,
+        IDL.Text,
+        IDL.Text,
+        ProjectStatus,
+        IDL.Vec(IDL.Text),
         IDL.Text,
         IDL.Nat,
       ],
@@ -79,6 +119,11 @@ export const idlFactory = ({ IDL }) => {
     'concept' : IDL.Null,
     'explained' : IDL.Null,
   });
+  const ProjectStatus = IDL.Variant({
+    'active' : IDL.Null,
+    'completed' : IDL.Null,
+    'inProgress' : IDL.Null,
+  });
   const Article = IDL.Record({
     'id' : IDL.Nat,
     'title' : IDL.Text,
@@ -90,17 +135,39 @@ export const idlFactory = ({ IDL }) => {
     'author' : IDL.Text,
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const Project = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : ProjectStatus,
+    'title' : IDL.Text,
+    'displayOrder' : IDL.Nat,
+    'link' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'tags' : IDL.Vec(IDL.Text),
+    'description' : IDL.Text,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'claimFirstAdmin' : IDL.Func([], [IDL.Bool], []),
     'createArticle' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Vec(IDL.Text), ArticleType, IDL.Text, IDL.Nat],
         [IDL.Nat],
         [],
       ),
+    'createProject' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          ProjectStatus,
+          IDL.Vec(IDL.Text),
+          IDL.Text,
+          IDL.Nat,
+        ],
+        [IDL.Nat],
+        [],
+      ),
     'deleteArticle' : IDL.Func([IDL.Nat], [], []),
+    'deleteProject' : IDL.Func([IDL.Nat], [], []),
     'getArticle' : IDL.Func([IDL.Nat], [Article], ['query']),
     'getArticles' : IDL.Func([], [IDL.Vec(Article)], ['query']),
     'getArticlesByType' : IDL.Func(
@@ -110,14 +177,21 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getCreatorImageUrl' : IDL.Func([], [IDL.Text], ['query']),
+    'getLogoUrl' : IDL.Func([], [IDL.Text], ['query']),
+    'getProjects' : IDL.Func([], [IDL.Vec(Project)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
-    'isAdminClaimed' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'setCreatorImageUrl' : IDL.Func([IDL.Text], [], []),
+    'setLogoUrl' : IDL.Func([IDL.Text], [], []),
+    'getSiteText' : IDL.Func([IDL.Text], [IDL.Text], ['query']),
+    'getAllSiteTexts' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text))], ['query']),
+    'setSiteText' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updateArticle' : IDL.Func(
         [
           IDL.Nat,
@@ -125,6 +199,19 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Vec(IDL.Text),
           ArticleType,
+          IDL.Text,
+          IDL.Nat,
+        ],
+        [],
+        [],
+      ),
+    'updateProject' : IDL.Func(
+        [
+          IDL.Nat,
+          IDL.Text,
+          IDL.Text,
+          ProjectStatus,
+          IDL.Vec(IDL.Text),
           IDL.Text,
           IDL.Nat,
         ],

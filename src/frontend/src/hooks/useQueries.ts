@@ -118,7 +118,7 @@ export function useIsAdminClaimed() {
     queryFn: async () => {
       if (!actor) return false;
       try {
-        return await actor.isAdminClaimed();
+        return await (actor as any).isAdminClaimed();
       } catch {
         return false;
       }
@@ -133,7 +133,7 @@ export function useClaimFirstAdmin() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
-      return actor.claimFirstAdmin();
+      return (actor as any).claimFirstAdmin();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["isAdmin"] });
@@ -226,7 +226,7 @@ export function useGetLogoUrl() {
     queryFn: async () => {
       if (!actor) return DEFAULT_LOGO;
       try {
-        const url = await (actor as any).getLogoUrl();
+        const url = await actor.getLogoUrl();
         return url || DEFAULT_LOGO;
       } catch {
         return DEFAULT_LOGO;
@@ -243,10 +243,43 @@ export function useSetLogoUrl() {
   return useMutation({
     mutationFn: async (url: string) => {
       if (!actor) throw new Error("Not connected");
-      return (actor as any).setLogoUrl(url);
+      return actor.setLogoUrl(url);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["logoUrl"] });
+    },
+  });
+}
+
+// ─── Creator Image ───────────────────────────────────────────────────────────
+
+export function useGetCreatorImageUrl() {
+  const { actor, isFetching } = useActor();
+  return useQuery<string>({
+    queryKey: ["creatorImageUrl"],
+    queryFn: async () => {
+      if (!actor) return "";
+      try {
+        return await (actor as any).getCreatorImageUrl();
+      } catch {
+        return "";
+      }
+    },
+    enabled: !isFetching,
+    placeholderData: "",
+  });
+}
+
+export function useSetCreatorImageUrl() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (url: string) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).setCreatorImageUrl(url);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["creatorImageUrl"] });
     },
   });
 }
@@ -260,7 +293,7 @@ export function useGetProjects() {
     queryFn: async () => {
       if (!actor) return [];
       try {
-        return await (actor as any).getProjects();
+        return await actor.getProjects();
       } catch {
         return [];
       }
@@ -283,7 +316,7 @@ export function useCreateProject() {
       displayOrder: bigint;
     }) => {
       if (!actor) throw new Error("Not connected");
-      return (actor as any).createProject(
+      return actor.createProject(
         data.title,
         data.description,
         data.status,
@@ -312,7 +345,7 @@ export function useUpdateProject() {
       displayOrder: bigint;
     }) => {
       if (!actor) throw new Error("Not connected");
-      return (actor as any).updateProject(
+      return actor.updateProject(
         data.id,
         data.title,
         data.description,
@@ -334,10 +367,44 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("Not connected");
-      return (actor as any).deleteProject(id);
+      return actor.deleteProject(id);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+// ─── Site Texts ──────────────────────────────────────────────────────────────
+
+export function useGetAllSiteTexts() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Record<string, string>>({
+    queryKey: ["siteTexts"],
+    queryFn: async () => {
+      if (!actor) return {};
+      try {
+        const pairs = await (actor as any).getAllSiteTexts();
+        return Object.fromEntries(pairs);
+      } catch {
+        return {};
+      }
+    },
+    enabled: !isFetching,
+    placeholderData: {},
+  });
+}
+
+export function useSetSiteText() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).setSiteText(key, value);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["siteTexts"] });
     },
   });
 }

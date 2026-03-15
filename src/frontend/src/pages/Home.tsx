@@ -3,11 +3,14 @@ import { ArrowRight, Brain, Calculator, Zap } from "lucide-react";
 import ArticleCard from "../components/ArticleCard";
 import ParticleCanvas from "../components/ParticleCanvas";
 import ScrollReveal from "../components/ScrollReveal";
-import { useGetConceptArticles } from "../hooks/useQueries";
+import { useGetAllSiteTexts, useGetConceptArticles } from "../hooks/useQueries";
 
 export default function Home() {
   const { data: articles } = useGetConceptArticles();
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
   const latestArticles = (articles ?? []).slice(0, 3);
+
+  const t = (key: string, fallback: string) => siteTexts[key] || fallback;
 
   return (
     <main>
@@ -47,12 +50,17 @@ export default function Home() {
           </h1>
 
           <p className="text-muted-foreground text-lg sm:text-xl mb-4 font-light tracking-wide">
-            Exploring deep ideas in science, mathematics, and technology.
+            {t(
+              "home.hero.tagline",
+              "Exploring deep ideas in science, mathematics, and technology.",
+            )}
           </p>
 
           <p className="text-muted-foreground/70 text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-            A platform for curious minds — technical concepts and story-driven
-            explanations at the frontier of human knowledge.
+            {t(
+              "home.hero.subtitle",
+              "A platform for curious minds — technical concepts and story-driven explanations at the frontier of human knowledge.",
+            )}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -162,11 +170,13 @@ export default function Home() {
             />
             <div className="relative z-10">
               <h2 className="font-display font-bold text-3xl text-foreground mb-4">
-                Explore Knowledge in Two Formats
+                {t("home.cta.title", "Explore Knowledge in Two Formats")}
               </h2>
               <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-                Every idea presented twice: as a structured technical concept,
-                and as an accessible story you can immerse yourself in.
+                {t(
+                  "home.cta.description",
+                  "Every idea presented twice: as a structured technical concept, and as an accessible story you can immerse yourself in.",
+                )}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link

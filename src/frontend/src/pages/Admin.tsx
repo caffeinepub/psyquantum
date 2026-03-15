@@ -21,11 +21,13 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
+  User,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
+import { ProjectStatus } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useClaimFirstAdmin,
@@ -33,16 +35,20 @@ import {
   useCreateProject,
   useDeleteArticle,
   useDeleteProject,
+  useGetAllSiteTexts,
   useGetArticles,
+  useGetCreatorImageUrl,
   useGetLogoUrl,
   useGetProjects,
   useIsAdmin,
   useIsAdminClaimed,
+  useSetCreatorImageUrl,
   useSetLogoUrl,
+  useSetSiteText,
   useUpdateArticle,
   useUpdateProject,
 } from "../hooks/useQueries";
-import type { Project, ProjectStatus } from "../types/project";
+import type { Project } from "../types/project";
 
 // ─── Article Form ─────────────────────────────────────────────────────────────
 
@@ -240,7 +246,7 @@ interface ProjectFormData {
 const defaultProjectForm: ProjectFormData = {
   title: "",
   description: "",
-  status: "active",
+  status: ProjectStatus.active,
   tags: "",
   link: "",
   displayOrder: "0",
@@ -358,6 +364,339 @@ function ProjectForm({
 
 // ─── Main Admin Page ─────────────────────────────────────────────────────────
 
+// ─── Site Text Field Component ───────────────────────────────────────────────
+
+function SiteTextField({
+  label,
+  textKey,
+  placeholder,
+  multiline = false,
+  rows = 2,
+  siteTexts,
+}: {
+  label: string;
+  textKey: string;
+  placeholder: string;
+  multiline?: boolean;
+  rows?: number;
+  siteTexts: Record<string, string>;
+}) {
+  const [value, setValue] = useState(siteTexts[textKey] ?? "");
+  const setSiteText = useSetSiteText();
+  const isDirty = value !== (siteTexts[textKey] ?? "");
+
+  // Sync when siteTexts updates (e.g. after save)
+  const currentBackend = siteTexts[textKey] ?? "";
+
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm text-muted-foreground font-medium">
+        {label}
+      </Label>
+      {multiline ? (
+        <Textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          rows={rows}
+          className="resize-none bg-card/30 border-border focus:border-primary/50"
+          data-ocid={`admin.sitetext.${textKey.replace(/\./g, "-")}.textarea`}
+        />
+      ) : (
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="bg-card/30 border-border focus:border-primary/50"
+          data-ocid={`admin.sitetext.${textKey.replace(/\./g, "-")}.input`}
+        />
+      )}
+      <div className="flex items-center gap-3">
+        <Button
+          size="sm"
+          disabled={
+            setSiteText.isPending || (!isDirty && currentBackend !== "")
+          }
+          onClick={async () => {
+            try {
+              await setSiteText.mutateAsync({ key: textKey, value });
+              toast.success("Saved!");
+            } catch {
+              toast.error("Failed to save.");
+            }
+          }}
+          className="gap-2"
+          data-ocid={`admin.sitetext.${textKey.replace(/\./g, "-")}.save_button`}
+        >
+          {setSiteText.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : null}
+          Save
+        </Button>
+        {isDirty && (
+          <span className="text-xs text-primary/70">Unsaved changes</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SiteTextTab() {
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
+
+  const sectionClass = "mb-10";
+  const headingClass =
+    "font-display font-bold text-xl text-foreground mb-6 flex items-center gap-3";
+  const fieldGridClass = "space-y-6";
+
+  return (
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-sm mb-8">
+        Edit any text displayed on the site. Changes take effect immediately
+        after saving.
+      </p>
+
+      {/* Nav Labels */}
+      <div className={sectionClass}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Nav Labels
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Concepts"
+            textKey="nav.concepts"
+            placeholder="Concepts"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Explained"
+            textKey="nav.explained"
+            placeholder="Explained"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Projects"
+            textKey="nav.projects"
+            placeholder="Projects"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="About"
+            textKey="nav.about"
+            placeholder="About"
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Home Page */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Home Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Hero Tagline"
+            textKey="home.hero.tagline"
+            placeholder="Exploring deep ideas in science, mathematics, and technology."
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Hero Subtitle"
+            textKey="home.hero.subtitle"
+            placeholder="A platform for curious minds..."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="CTA Banner Title"
+            textKey="home.cta.title"
+            placeholder="Explore Knowledge in Two Formats"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="CTA Banner Description"
+            textKey="home.cta.description"
+            placeholder="Every idea presented twice..."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Concepts Page */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Concepts Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Page Title"
+            textKey="concepts.title"
+            placeholder="Concepts"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Page Description"
+            textKey="concepts.description"
+            placeholder="Structured philosophical and technical explorations..."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Explained Page */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Explained Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Page Title"
+            textKey="explained.title"
+            placeholder="Explained"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Page Description"
+            textKey="explained.description"
+            placeholder="Complex ideas told through narrative..."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Projects Page */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Projects Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Page Title"
+            textKey="projects.title"
+            placeholder="Projects"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Page Description"
+            textKey="projects.description"
+            placeholder="Robotics, AI, and experimental technology..."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Empty State Title"
+            textKey="projects.empty.title"
+            placeholder="Projects"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Empty State Description"
+            textKey="projects.empty.description"
+            placeholder="Projects currently under development."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Empty State Subtext"
+            textKey="projects.empty.subtext"
+            placeholder="Robotics, AI, and experimental technology projects are being built. Check back soon."
+            multiline
+            rows={2}
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* About Page */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          About Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Platform Paragraph 1"
+            textKey="about.platform.p1"
+            placeholder="PsyQuantum is a knowledge exploration platform..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Platform Paragraph 2"
+            textKey="about.platform.p2"
+            placeholder="Every idea on PsyQuantum is presented in two distinct formats:"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Platform Paragraph 3"
+            textKey="about.platform.p3"
+            placeholder="The platform is built on the belief..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Creator Paragraph 1"
+            textKey="about.creator.p1"
+            placeholder="PsyQuantum was created by Piyush..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Creator Paragraph 2"
+            textKey="about.creator.p2"
+            placeholder="The goal of PsyQuantum is to explore ideas..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Creator Paragraph 3"
+            textKey="about.creator.p3"
+            placeholder="Piyush believes that extraordinary ideas..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Text"
+            textKey="about.contact.text"
+            placeholder="Reach out on Instagram for questions, ideas, or collaboration:"
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
@@ -366,6 +705,7 @@ export default function Admin() {
   const { data: articles, isLoading: articlesLoading } = useGetArticles();
   const { data: projects, isLoading: projectsLoading } = useGetProjects();
   const { data: logoUrl } = useGetLogoUrl();
+  const { data: creatorImageUrl } = useGetCreatorImageUrl();
 
   const createArticleMutation = useCreateArticle();
   const updateArticleMutation = useUpdateArticle();
@@ -375,6 +715,7 @@ export default function Admin() {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
   const setLogoMutation = useSetLogoUrl();
+  const setCreatorImageMutation = useSetCreatorImageUrl();
 
   const [showCreateArticle, setShowCreateArticle] = useState(false);
   const [editingArticleId, setEditingArticleId] = useState<bigint | null>(null);
@@ -387,6 +728,11 @@ export default function Admin() {
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [creatorImagePreview, setCreatorImagePreview] = useState<string | null>(
+    null,
+  );
+  const creatorFileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!identity;
   const isLoggingIn = loginStatus === "logging-in";
@@ -509,23 +855,24 @@ export default function Admin() {
     }
   }
 
-  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function compressImage(
+    file: File,
+    maxSize: number,
+    cb: (dataUrl: string) => void,
+  ) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       const img = new Image();
       img.onload = () => {
-        const MAX = 400;
         let { width, height } = img;
-        if (width > MAX || height > MAX) {
+        if (width > maxSize || height > maxSize) {
           if (width > height) {
-            height = Math.round((height * MAX) / width);
-            width = MAX;
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
           } else {
-            width = Math.round((width * MAX) / height);
-            height = MAX;
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
           }
         }
         const canvas = document.createElement("canvas");
@@ -534,11 +881,17 @@ export default function Admin() {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, width, height);
-        setLogoPreview(canvas.toDataURL("image/jpeg", 0.8));
+        cb(canvas.toDataURL("image/jpeg", 0.8));
       };
       img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+  }
+
+  function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    compressImage(file, 400, setLogoPreview);
   }
 
   async function handleSaveLogo() {
@@ -549,6 +902,39 @@ export default function Admin() {
       setLogoPreview(null);
     } catch {
       toast.error("Failed to update logo.");
+    }
+  }
+
+  function handleCreatorImageFileChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    compressImage(file, 400, setCreatorImagePreview);
+  }
+
+  async function handleSaveCreatorImage() {
+    if (!creatorImagePreview) return;
+    try {
+      await setCreatorImageMutation.mutateAsync(creatorImagePreview);
+      toast.success("Creator image updated!");
+      setCreatorImagePreview(null);
+    } catch {
+      toast.error("Failed to update creator image.");
+    }
+  }
+
+  async function handleRemoveCreatorImage() {
+    if (
+      !confirm("Remove the creator image? A placeholder will be shown instead.")
+    )
+      return;
+    try {
+      await setCreatorImageMutation.mutateAsync("");
+      toast.success("Creator image removed.");
+      setCreatorImagePreview(null);
+    } catch {
+      toast.error("Failed to remove creator image.");
     }
   }
 
@@ -710,7 +1096,10 @@ export default function Admin() {
               Projects
             </TabsTrigger>
             <TabsTrigger value="logo" data-ocid="admin.logo.tab">
-              Logo
+              Logo & Images
+            </TabsTrigger>
+            <TabsTrigger value="sitetext" data-ocid="admin.sitetext.tab">
+              Site Text
             </TabsTrigger>
           </TabsList>
 
@@ -951,88 +1340,215 @@ export default function Admin() {
             )}
           </TabsContent>
 
-          {/* ── Logo Tab ── */}
+          {/* ── Logo & Images Tab ── */}
           <TabsContent value="logo">
-            <div className="max-w-lg">
-              <h2 className="font-display font-bold text-2xl text-foreground mb-6">
-                Website Logo
-              </h2>
+            <div className="max-w-lg space-y-12">
+              {/* Website Logo */}
+              <div>
+                <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+                  Website Logo
+                </h2>
 
-              <div className="space-y-6">
-                <div>
-                  <Label className="mb-3 block">Current Logo</Label>
-                  <div className="w-32 h-32 rounded-xl border border-border bg-card/30 flex items-center justify-center overflow-hidden">
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt="Current logo"
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <ImageIcon className="w-10 h-10 text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-3 block">Upload New Logo</Label>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoFileChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    data-ocid="admin.logo_upload_button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="gap-2"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                    Choose Image
-                  </Button>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Images are automatically resized for storage.
-                  </p>
-                </div>
-
-                {logoPreview && (
-                  <div className="space-y-4">
-                    <div>
-                      <Label className="mb-3 block">Preview</Label>
-                      <div className="w-32 h-32 rounded-xl border border-primary/40 bg-card/30 flex items-center justify-center overflow-hidden">
+                <div className="space-y-6">
+                  <div>
+                    <Label className="mb-3 block">Current Logo</Label>
+                    <div className="w-32 h-32 rounded-xl border border-border bg-card/30 flex items-center justify-center overflow-hidden">
+                      {logoUrl ? (
                         <img
-                          src={logoPreview}
-                          alt="Logo preview"
+                          src={logoUrl}
+                          alt="Current logo"
                           className="w-full h-full object-contain"
                         />
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button
-                        data-ocid="admin.logo_save_button"
-                        onClick={handleSaveLogo}
-                        disabled={setLogoMutation.isPending}
-                        className="gap-2"
-                      >
-                        {setLogoMutation.isPending && (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        )}
-                        {setLogoMutation.isPending ? "Saving..." : "Save Logo"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setLogoPreview(null)}
-                      >
-                        Cancel
-                      </Button>
+                      ) : (
+                        <ImageIcon className="w-10 h-10 text-muted-foreground" />
+                      )}
                     </div>
                   </div>
-                )}
+
+                  <div>
+                    <Label className="mb-3 block">Upload New Logo</Label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoFileChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-ocid="admin.logo_upload_button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="gap-2"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      Choose Image
+                    </Button>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Images are automatically resized for storage.
+                    </p>
+                  </div>
+
+                  {logoPreview && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="mb-3 block">Preview</Label>
+                        <div className="w-32 h-32 rounded-xl border border-primary/40 bg-card/30 flex items-center justify-center overflow-hidden">
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          data-ocid="admin.logo_save_button"
+                          onClick={handleSaveLogo}
+                          disabled={setLogoMutation.isPending}
+                          className="gap-2"
+                        >
+                          {setLogoMutation.isPending && (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          )}
+                          {setLogoMutation.isPending
+                            ? "Saving..."
+                            : "Save Logo"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setLogoPreview(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border" />
+
+              {/* Creator Image */}
+              <div>
+                <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+                  Creator Image
+                </h2>
+
+                <div className="space-y-6">
+                  <div>
+                    <Label className="mb-3 block">Current Creator Image</Label>
+                    <div
+                      className="w-28 h-28 rounded-full border-2 border-border bg-card/30 flex items-center justify-center overflow-hidden"
+                      style={{
+                        boxShadow: "0 0 14px 2px oklch(var(--primary) / 0.2)",
+                      }}
+                    >
+                      {creatorImageUrl ? (
+                        <img
+                          src={creatorImageUrl}
+                          alt="Creator"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-card">
+                          <User className="w-10 h-10 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="mb-3 block">
+                      Upload New Creator Image
+                    </Label>
+                    <input
+                      ref={creatorFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCreatorImageFileChange}
+                    />
+                    <div className="flex gap-3 flex-wrap">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        data-ocid="admin.creator_image.upload_button"
+                        onClick={() => creatorFileInputRef.current?.click()}
+                        className="gap-2"
+                      >
+                        <User className="w-4 h-4" />
+                        Choose Photo
+                      </Button>
+                      {creatorImageUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          data-ocid="admin.creator_image.delete_button"
+                          onClick={handleRemoveCreatorImage}
+                          disabled={setCreatorImageMutation.isPending}
+                          className="gap-2 text-destructive border-destructive/40 hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove Image
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Shown as a circular profile photo on the About page.
+                      Images are automatically resized.
+                    </p>
+                  </div>
+
+                  {creatorImagePreview && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="mb-3 block">Preview</Label>
+                        <div
+                          className="w-28 h-28 rounded-full border-2 border-primary/50 overflow-hidden"
+                          style={{
+                            boxShadow:
+                              "0 0 14px 2px oklch(var(--primary) / 0.3)",
+                          }}
+                        >
+                          <img
+                            src={creatorImagePreview}
+                            alt="Creator preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          data-ocid="admin.creator_image.save_button"
+                          onClick={handleSaveCreatorImage}
+                          disabled={setCreatorImageMutation.isPending}
+                          className="gap-2"
+                        >
+                          {setCreatorImageMutation.isPending && (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          )}
+                          {setCreatorImageMutation.isPending
+                            ? "Saving..."
+                            : "Update Creator Image"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setCreatorImagePreview(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          </TabsContent>
+          {/* ── Site Text Tab ── */}
+          <TabsContent value="sitetext">
+            <SiteTextTab />
           </TabsContent>
         </Tabs>
       </div>

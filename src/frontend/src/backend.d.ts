@@ -7,6 +7,16 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface Project {
+    id: bigint;
+    status: ProjectStatus;
+    title: string;
+    displayOrder: bigint;
+    link: string;
+    createdAt: bigint;
+    tags: Array<string>;
+    description: string;
+}
 export interface UserProfile {
     name: string;
 }
@@ -24,41 +34,35 @@ export enum ArticleType {
     concept = "concept",
     explained = "explained"
 }
+export enum ProjectStatus {
+    active = "active",
+    completed = "completed",
+    inProgress = "inProgress"
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
     guest = "guest"
 }
-export type ProjectStatus = "active" | "inProgress" | "completed";
-export interface Project {
-    id: bigint;
-    title: string;
-    description: string;
-    status: ProjectStatus;
-    tags: Array<string>;
-    link: string;
-    displayOrder: bigint;
-    createdAt: bigint;
-}
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    claimFirstAdmin(): Promise<boolean>;
     createArticle(title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<bigint>;
+    createProject(title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
     deleteArticle(id: bigint): Promise<void>;
+    deleteProject(id: bigint): Promise<void>;
     getArticle(id: bigint): Promise<Article>;
     getArticles(): Promise<Array<Article>>;
     getArticlesByType(articleType: ArticleType): Promise<Array<Article>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getCreatorImageUrl(): Promise<string>;
     getLogoUrl(): Promise<string>;
-    isAdminClaimed(): Promise<boolean>;
+    getProjects(): Promise<Array<Project>>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    setCreatorImageUrl(url: string): Promise<void>;
     setLogoUrl(url: string): Promise<void>;
     updateArticle(id: bigint, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<void>;
-    createProject(title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
     updateProject(id: bigint, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<void>;
-    deleteProject(id: bigint): Promise<void>;
-    getProjects(): Promise<Array<Project>>;
 }

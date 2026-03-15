@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import ScrollReveal from "../components/ScrollReveal";
-import { useGetProjects } from "../hooks/useQueries";
+import { useGetAllSiteTexts, useGetProjects } from "../hooks/useQueries";
 import type { Project, ProjectStatus } from "../types/project";
 
 const PULSE_DELAYS = ["0s", "0.3s", "0.6s"];
@@ -87,6 +87,8 @@ function ProjectCard({ project, idx }: { project: Project; idx: number }) {
 
 export default function Projects() {
   const { data: projects = [], isLoading } = useGetProjects();
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
+  const t = (key: string, fallback: string) => siteTexts[key] || fallback;
 
   const sorted = [...projects].sort(
     (a, b) => Number(a.displayOrder) - Number(b.displayOrder),
@@ -147,14 +149,19 @@ export default function Projects() {
               {"// coming soon"}
             </p>
             <h1 className="font-display font-extrabold text-5xl text-foreground mb-6">
-              Projects
+              {t("projects.empty.title", "Projects")}
             </h1>
             <p className="text-muted-foreground text-xl leading-relaxed mb-4">
-              Projects currently under development.
+              {t(
+                "projects.empty.description",
+                "Projects currently under development.",
+              )}
             </p>
             <p className="text-muted-foreground/60 text-base">
-              Robotics, AI, and experimental technology projects are being
-              built. Check back soon.
+              {t(
+                "projects.empty.subtext",
+                "Robotics, AI, and experimental technology projects are being built. Check back soon.",
+              )}
             </p>
 
             <div className="mt-10 flex items-center justify-center gap-3">
@@ -181,11 +188,13 @@ export default function Projects() {
               {"// projects"}
             </p>
             <h1 className="font-display font-extrabold text-5xl text-foreground mb-4">
-              Projects
+              {t("projects.title", "Projects")}
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Robotics, AI, and experimental technology being built at
-              PsyQuantum.
+              {t(
+                "projects.description",
+                "Robotics, AI, and experimental technology being built at PsyQuantum.",
+              )}
             </p>
           </div>
         </ScrollReveal>

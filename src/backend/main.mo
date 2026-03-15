@@ -7,10 +7,14 @@ import Order "mo:core/Order";
 import Text "mo:core/Text";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
+//@formatter:off
+
 actor {
+  // ─────────────── Security ────────────────────────
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
@@ -26,44 +30,99 @@ actor {
     true;
   };
 
-  public type UserProfile = { name : Text };
+  public type UserProfile = {
+    name : Text;
+  };
+
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
-  // ── Logo ──────────────────────────────────────────────────────────────────
+  // ─────────────── Logo ─────────────────────────────
   stable var logoUrl : Text = "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
-  public query func getLogoUrl() : async Text { logoUrl };
+  public query func getLogoUrl() : async Text {
+    logoUrl;
+  };
 
   public shared ({ caller }) func setLogoUrl(url : Text) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can change the logo");
+      Runtime.trap("Unauthorized only admins can change logo");
     };
     logoUrl := url;
   };
 
-  // ── Articles ──────────────────────────────────────────────────────────────
-  public type ArticleType = { #concept; #explained };
+
+  // ─────────────── Creator Image ───────────────────
+  stable var creatorImageUrl : Text = "";
+
+  public query func getCreatorImageUrl() : async Text {
+    creatorImageUrl;
+  };
+
+  public shared ({ caller }) func setCreatorImageUrl(url : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized only admins can change creator image");
+    };
+    creatorImageUrl := url;
+  };
+
+  // ─────────────── Site Text ───────────────────────
+  stable var siteTextData : [(Text, Text)] = [];
+  let siteTexts = Map.empty<Text, Text>();
+
+  system func preupgrade() {
+    siteTextData := siteTexts.entries().toArray();
+  };
+
+  system func postupgrade() {
+    for ((k, v) in siteTextData.vals()) {
+      siteTexts.add(k, v);
+    };
+  };
+
+  public query func getSiteText(key : Text) : async Text {
+    switch (siteTexts.get(key)) {
+      case (?v) { v };
+      case null { "" };
+    };
+  };
+
+  public query func getAllSiteTexts() : async [(Text, Text)] {
+    siteTexts.entries().toArray();
+  };
+
+  public shared ({ caller }) func setSiteText(key : Text, value : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized only admins can change site text");
+    };
+    siteTexts.add(key, value);
+  };
+
+  // ─────────────── Articles ────────────────────────
+  public type ArticleType = {
+    #concept;
+    #explained;
+  };
 
   public type Article = {
     id : Nat;
@@ -87,20 +146,24 @@ actor {
   var initialized = false;
 
   func seedArticles() {
-    if (initialized) { return };
+    if (initialized) {
+      return;
+    };
     initialized := true;
     type SeedData = (Text, Text, ArticleType);
+
     let seedData = [
-      ("Concept 1", "Short desc 1", #concept),
-      ("Concept 2", "Short desc 2", #concept),
-      ("Concept 3", "Short desc 3", #concept),
-      ("Concept 4", "Short desc 4", #concept),
-      ("Concept 5", "Short desc 5", #concept),
-      ("Explained 1", "Short desc 6", #explained),
-      ("Explained 2", "Short desc 7", #explained),
-      ("Explained 3", "Short desc 8", #explained),
-      ("Explained 4", "Short desc 9", #explained),
+      ("Concept 1", "Short desc 1", #concept : ArticleType),
+      ("Concept 2", "Short desc 2", #concept : ArticleType),
+      ("Concept 3", "Short desc 3", #concept : ArticleType),
+      ("Concept 4", "Short desc 4", #concept : ArticleType),
+      ("Concept 5", "Short desc 5", #concept : ArticleType),
+      ("Explained 1", "Short desc 6", #explained : ArticleType),
+      ("Explained 2", "Short desc 7", #explained : ArticleType),
+      ("Explained 3", "Short desc 8", #explained : ArticleType),
+      ("Explained 4", "Short desc 9", #explained : ArticleType),
     ];
+
     for (entry in seedData.values()) {
       let article : Article = {
         id = nextId;
@@ -120,15 +183,25 @@ actor {
   seedArticles();
 
   public shared ({ caller }) func createArticle(
-    title : Text, description : Text, content : [Text],
-    articleType : ArticleType, author : Text, displayOrder : Nat,
+    title : Text,
+    description : Text,
+    content : [Text],
+    articleType : ArticleType,
+    author : Text,
+    displayOrder : Nat,
   ) : async Nat {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can create articles");
     };
     let article : Article = {
-      id = nextId; title; description; content; articleType; author;
-      createdAt = Time.now(); displayOrder;
+      id = nextId;
+      title;
+      description;
+      content;
+      articleType;
+      author;
+      createdAt = Time.now();
+      displayOrder;
     };
     articles.add(nextId, article);
     nextId += 1;
@@ -136,25 +209,40 @@ actor {
   };
 
   public shared ({ caller }) func updateArticle(
-    id : Nat, title : Text, description : Text, content : [Text],
-    articleType : ArticleType, author : Text, displayOrder : Nat,
+    id : Nat,
+    title : Text,
+    description : Text,
+    content : [Text],
+    articleType : ArticleType,
+    author : Text,
+    displayOrder : Nat,
   ) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can update articles");
     };
     switch (articles.get(id)) {
       case (null) { Runtime.trap("Article does not exist") };
       case (?existing) {
-        articles.add(id, { existing with title; description; content; articleType; author; displayOrder });
+        articles.add(id, {
+          existing with
+          title;
+          description;
+          content;
+          articleType;
+          author;
+          displayOrder;
+        });
       };
     };
   };
 
   public shared ({ caller }) func deleteArticle(id : Nat) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can delete articles");
     };
-    if (not articles.containsKey(id)) { Runtime.trap("Article does not exist") };
+    if (not articles.containsKey(id)) {
+      Runtime.trap("Article does not exist");
+    };
     articles.remove(id);
   };
 
@@ -175,8 +263,12 @@ actor {
     ).sort(Article.compareByDisplayOrder);
   };
 
-  // ── Projects ──────────────────────────────────────────────────────────────
-  public type ProjectStatus = { #active; #inProgress; #completed };
+  // ─────────────── Projects ────────────────────────
+  public type ProjectStatus = {
+    #active;
+    #inProgress;
+    #completed;
+  };
 
   public type Project = {
     id : Nat;
@@ -199,15 +291,25 @@ actor {
   var nextProjectId = 1;
 
   public shared ({ caller }) func createProject(
-    title : Text, description : Text, status : ProjectStatus,
-    tags : [Text], link : Text, displayOrder : Nat,
+    title : Text,
+    description : Text,
+    status : ProjectStatus,
+    tags : [Text],
+    link : Text,
+    displayOrder : Nat,
   ) : async Nat {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can create projects");
     };
     let project : Project = {
-      id = nextProjectId; title; description; status; tags; link;
-      displayOrder; createdAt = Time.now();
+      id = nextProjectId;
+      title;
+      description;
+      status;
+      tags;
+      link;
+      displayOrder;
+      createdAt = Time.now();
     };
     projects.add(nextProjectId, project);
     nextProjectId += 1;
@@ -215,25 +317,40 @@ actor {
   };
 
   public shared ({ caller }) func updateProject(
-    id : Nat, title : Text, description : Text, status : ProjectStatus,
-    tags : [Text], link : Text, displayOrder : Nat,
+    id : Nat,
+    title : Text,
+    description : Text,
+    status : ProjectStatus,
+    tags : [Text],
+    link : Text,
+    displayOrder : Nat,
   ) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can update projects");
     };
     switch (projects.get(id)) {
       case (null) { Runtime.trap("Project does not exist") };
       case (?existing) {
-        projects.add(id, { existing with title; description; status; tags; link; displayOrder });
+        projects.add(id, {
+          existing with
+          title;
+          description;
+          status;
+          tags;
+          link;
+          displayOrder;
+        });
       };
     };
   };
 
   public shared ({ caller }) func deleteProject(id : Nat) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized");
+      Runtime.trap("Unauthorized only admins can delete projects");
     };
-    if (not projects.containsKey(id)) { Runtime.trap("Project does not exist") };
+    if (not projects.containsKey(id)) {
+      Runtime.trap("Project does not exist");
+    };
     projects.remove(id);
   };
 

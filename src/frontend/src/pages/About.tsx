@@ -1,7 +1,13 @@
+import { User } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import ScrollReveal from "../components/ScrollReveal";
+import { useGetAllSiteTexts, useGetCreatorImageUrl } from "../hooks/useQueries";
 
 export default function About() {
+  const { data: creatorImageUrl } = useGetCreatorImageUrl();
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
+  const t = (key: string, fallback: string) => siteTexts[key] || fallback;
+
   return (
     <main className="min-h-screen pt-24 pb-20">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
@@ -24,13 +30,16 @@ export default function About() {
             </h2>
             <div className="space-y-5 text-muted-foreground leading-relaxed">
               <p>
-                PsyQuantum is a knowledge exploration platform dedicated to the
-                most interesting frontiers of human thought — science,
-                mathematics, philosophy, artificial intelligence, and the
-                strange intersections between them.
+                {t(
+                  "about.platform.p1",
+                  "PsyQuantum is a knowledge exploration platform dedicated to the most interesting frontiers of human thought — science, mathematics, philosophy, artificial intelligence, and the strange intersections between them.",
+                )}
               </p>
               <p>
-                Every idea on PsyQuantum is presented in two distinct formats:
+                {t(
+                  "about.platform.p2",
+                  "Every idea on PsyQuantum is presented in two distinct formats:",
+                )}
               </p>
               <ul className="space-y-3 pl-4">
                 <li className="flex items-start gap-3">
@@ -55,8 +64,10 @@ export default function About() {
                 </li>
               </ul>
               <p>
-                The platform is built on the belief that deep ideas should be
-                available to everyone — not just those with academic training.
+                {t(
+                  "about.platform.p3",
+                  "The platform is built on the belief that deep ideas should be available to everyone — not just those with academic training.",
+                )}
               </p>
             </div>
           </section>
@@ -70,31 +81,44 @@ export default function About() {
               The Creator
             </h2>
             <div className="flex items-start gap-6">
-              <div className="w-16 h-16 rounded-xl border border-border overflow-hidden flex-shrink-0 flex items-center justify-center bg-card/50">
-                <img
-                  src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
-                  alt="PsyQuantum"
-                  className="w-full h-full object-contain block"
-                  style={{ display: "block" }}
-                />
+              {/* Circular profile image */}
+              <div
+                className="w-28 h-28 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden border-2 border-primary/60"
+                style={{
+                  boxShadow: "0 0 18px 2px oklch(var(--primary) / 0.35)",
+                }}
+              >
+                {creatorImageUrl ? (
+                  <img
+                    src={creatorImageUrl}
+                    alt="Creator"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-card flex items-center justify-center">
+                    <User className="w-10 h-10 text-primary/60" />
+                  </div>
+                )}
               </div>
+
               <div className="space-y-4 text-muted-foreground leading-relaxed">
                 <p>
-                  PsyQuantum was created by{" "}
-                  <strong className="text-foreground">Piyush</strong>, a student
-                  with a deep interest in science, artificial intelligence,
-                  robotics, and the kind of questions that don't have easy
-                  answers.
+                  {t(
+                    "about.creator.p1",
+                    "PsyQuantum was created by Piyush, a student with a deep interest in science, artificial intelligence, robotics, and the kind of questions that don't have easy answers.",
+                  )}
                 </p>
                 <p>
-                  The goal of PsyQuantum is to explore ideas that exist at the
-                  edges of what is known — and present them in a way that sparks
-                  curiosity, not just comprehension.
+                  {t(
+                    "about.creator.p2",
+                    "The goal of PsyQuantum is to explore ideas that exist at the edges of what is known — and present them in a way that sparks curiosity, not just comprehension.",
+                  )}
                 </p>
                 <p>
-                  Piyush believes that extraordinary ideas, whether in
-                  mathematics, neuroscience, philosophy, or technology, deserve
-                  to be explored deeply and shared widely.
+                  {t(
+                    "about.creator.p3",
+                    "Piyush believes that extraordinary ideas, whether in mathematics, neuroscience, philosophy, or technology, deserve to be explored deeply and shared widely.",
+                  )}
                 </p>
               </div>
             </div>
@@ -109,7 +133,10 @@ export default function About() {
               Contact
             </h2>
             <p className="text-muted-foreground mb-6">
-              Reach out on Instagram for questions, ideas, or collaboration:
+              {t(
+                "about.contact.text",
+                "Reach out on Instagram for questions, ideas, or collaboration:",
+              )}
             </p>
             <a
               href="https://instagram.com/psi___quantam"

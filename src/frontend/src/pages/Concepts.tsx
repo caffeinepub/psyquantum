@@ -1,12 +1,14 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import ArticleCard from "../components/ArticleCard";
 import ScrollReveal from "../components/ScrollReveal";
-import { useGetConceptArticles } from "../hooks/useQueries";
+import { useGetAllSiteTexts, useGetConceptArticles } from "../hooks/useQueries";
 
 const SKELETON_KEYS = ["sk-1", "sk-2", "sk-3", "sk-4", "sk-5", "sk-6"];
 
 export default function Concepts() {
   const { data: articles, isLoading } = useGetConceptArticles();
+  const { data: siteTexts = {} } = useGetAllSiteTexts();
+  const t = (key: string, fallback: string) => siteTexts[key] || fallback;
 
   return (
     <main className="min-h-screen pt-24 pb-20">
@@ -17,11 +19,13 @@ export default function Concepts() {
               {"// technical concepts"}
             </p>
             <h1 className="font-display font-extrabold text-5xl sm:text-6xl text-foreground mb-4">
-              Concepts
+              {t("concepts.title", "Concepts")}
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Structured philosophical and technical explorations. Ideas
-              presented in a rigorous, analytical format.
+              {t(
+                "concepts.description",
+                "Structured philosophical and technical explorations. Ideas presented in a rigorous, analytical format.",
+              )}
             </p>
           </div>
         </ScrollReveal>
