@@ -18,7 +18,7 @@ actor {
   let accessControlState = AccessControl.initState(); // was stable in prev version
 
   // ─────────────── Admin Auth (password-based, no Internet Identity needed) ───
-  let ADMIN_SECRET : Text = "psyquantum-reset-2026";
+  let ADMIN_SECRET : Text = "PsyQ@Adm!n#2026$Secure";
 
   func checkSecret(secret : Text) : Bool {
     secret == ADMIN_SECRET;
