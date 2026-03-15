@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Article, ArticleType } from "../backend";
+import { createActorWithConfig } from "../config";
 import {
   type SeedArticle,
   allSeedArticles,
@@ -114,49 +115,37 @@ export function useGetArticle(id: bigint) {
   });
 }
 
+// Stub — auth is now password-based, not identity-based
 export function useIsAdmin() {
-  const { actor, isFetching } = useActor();
-  return useQuery<boolean>({
-    queryKey: ["isAdmin"],
-    queryFn: async () => {
-      if (!actor) return false;
-      try {
-        return await actor.isCallerAdmin();
-      } catch {
-        return false;
-      }
-    },
-    enabled: !isFetching,
-  });
+  return { data: false, isLoading: false };
 }
 
 export function useIsAdminClaimed() {
-  const { actor, isFetching } = useActor();
-  return useQuery<boolean>({
-    queryKey: ["isAdminClaimed"],
-    queryFn: async () => {
-      if (!actor) return false;
-      try {
-        return await actor.isAdminClaimed();
-      } catch {
-        return false;
-      }
-    },
-    enabled: !isFetching,
+  return { data: false, isLoading: false };
+}
+
+// Stub — no longer needed
+export function useClaimFirstAdmin() {
+  return useMutation({
+    mutationFn: async () => false,
   });
 }
 
-export function useClaimFirstAdmin() {
-  const { actor } = useActor();
-  const qc = useQueryClient();
+// Stub — no longer needed
+export function useForceResetAdmin() {
   return useMutation({
-    mutationFn: async () => {
-      if (!actor) throw new Error("Not connected");
-      return actor.claimFirstAdmin();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["isAdmin"] });
-      qc.invalidateQueries({ queryKey: ["isAdminClaimed"] });
+    mutationFn: async (_secret: string) => false,
+  });
+}
+
+// New: check admin password via backend
+export function useCheckAdminPassword() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (secret: string) => {
+      // If actor isn't ready yet, create a fresh anonymous one so login never fails with "Not connected"
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).checkAdminPassword(secret) as Promise<boolean>;
     },
   });
 }
@@ -166,6 +155,7 @@ export function useCreateArticle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
+      secret: string;
       title: string;
       description: string;
       content: string[];
@@ -173,15 +163,17 @@ export function useCreateArticle() {
       author: string;
       displayOrder: bigint;
     }) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.createArticle(
+      const a = actor ?? (await createActorWithConfig());
+      // backend.ts types are pre-update; cast to any for new secret param
+      return (a as any).createArticle(
+        data.secret,
         data.title,
         data.description,
         data.content,
         data.articleType,
         data.author,
         data.displayOrder,
-      );
+      ) as Promise<bigint>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -194,6 +186,7 @@ export function useUpdateArticle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
+      secret: string;
       id: bigint;
       title: string;
       description: string;
@@ -202,8 +195,9 @@ export function useUpdateArticle() {
       author: string;
       displayOrder: bigint;
     }) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.updateArticle(
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).updateArticle(
+        data.secret,
         data.id,
         data.title,
         data.description,
@@ -211,7 +205,7 @@ export function useUpdateArticle() {
         data.articleType,
         data.author,
         data.displayOrder,
-      );
+      ) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -223,9 +217,9 @@ export function useDeleteArticle() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.deleteArticle(id);
+    mutationFn: async (data: { secret: string; id: bigint }) => {
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -260,9 +254,9 @@ export function useSetLogoUrl() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (url: string) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.setLogoUrl(url);
+    mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).setLogoUrl(secret, url) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["logoUrl"] });
@@ -293,9 +287,9 @@ export function useSetCreatorImageUrl() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (url: string) => {
-      if (!actor) throw new Error("Not connected");
-      return (actor as any).setCreatorImageUrl(url);
+    mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).setCreatorImageUrl(secret, url) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["creatorImageUrl"] });
@@ -327,6 +321,7 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
+      secret: string;
       title: string;
       description: string;
       status: ProjectStatus;
@@ -334,15 +329,16 @@ export function useCreateProject() {
       link: string;
       displayOrder: bigint;
     }) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.createProject(
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).createProject(
+        data.secret,
         data.title,
         data.description,
         data.status,
         data.tags,
         data.link,
         data.displayOrder,
-      );
+      ) as Promise<bigint>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -355,6 +351,7 @@ export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
+      secret: string;
       id: bigint;
       title: string;
       description: string;
@@ -363,8 +360,9 @@ export function useUpdateProject() {
       link: string;
       displayOrder: bigint;
     }) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.updateProject(
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).updateProject(
+        data.secret,
         data.id,
         data.title,
         data.description,
@@ -372,7 +370,7 @@ export function useUpdateProject() {
         data.tags,
         data.link,
         data.displayOrder,
-      );
+      ) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -384,9 +382,9 @@ export function useDeleteProject() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error("Not connected");
-      return actor.deleteProject(id);
+    mutationFn: async (data: { secret: string; id: bigint }) => {
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).deleteProject(data.secret, data.id) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -418,27 +416,16 @@ export function useSetSiteText() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      if (!actor) throw new Error("Not connected");
-      return (actor as any).setSiteText(key, value);
+    mutationFn: async ({
+      secret,
+      key,
+      value,
+    }: { secret: string; key: string; value: string }) => {
+      const a = actor ?? (await createActorWithConfig());
+      return (a as any).setSiteText(secret, key, value) as Promise<void>;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["siteTexts"] });
-    },
-  });
-}
-
-export function useForceResetAdmin() {
-  const { actor } = useActor();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (secret: string) => {
-      if (!actor) throw new Error("Not connected");
-      return (actor as any).forceResetAdmin(secret);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["isAdmin"] });
-      qc.invalidateQueries({ queryKey: ["isAdminClaimed"] });
     },
   });
 }

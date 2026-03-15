@@ -3,14 +3,23 @@ import { ArrowRight, Brain, Calculator, Zap } from "lucide-react";
 import ArticleCard from "../components/ArticleCard";
 import ParticleCanvas from "../components/ParticleCanvas";
 import ScrollReveal from "../components/ScrollReveal";
-import { useGetAllSiteTexts, useGetConceptArticles } from "../hooks/useQueries";
+import {
+  useGetAllSiteTexts,
+  useGetConceptArticles,
+  useGetLogoUrl,
+} from "../hooks/useQueries";
+
+const DEFAULT_LOGO =
+  "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
 export default function Home() {
   const { data: articles } = useGetConceptArticles();
   const { data: siteTexts = {} } = useGetAllSiteTexts();
+  const { data: logoUrl } = useGetLogoUrl();
   const latestArticles = (articles ?? []).slice(0, 3);
 
   const t = (key: string, fallback: string) => siteTexts[key] || fallback;
+  const logo = logoUrl || DEFAULT_LOGO;
 
   return (
     <main>
@@ -32,7 +41,8 @@ export default function Home() {
           <div className="flex justify-center items-center mb-8">
             <div className="w-28 h-28 rounded-2xl overflow-hidden border border-primary/30 shadow-glow-lg flex items-center justify-center bg-card/40 backdrop-blur-sm animate-float">
               <img
-                src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
+                id="uoyecy"
+                src={logo}
                 alt="PsyQuantum"
                 className="w-full h-full object-contain block mx-auto"
                 style={{ display: "block" }}

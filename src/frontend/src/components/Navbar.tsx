@@ -55,9 +55,10 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: location.pathname is intentional trigger
   useEffect(() => {
     setOpen(false);
-  });
+  }, [location.pathname]);
 
   const logo = logoUrl || DEFAULT_LOGO;
 

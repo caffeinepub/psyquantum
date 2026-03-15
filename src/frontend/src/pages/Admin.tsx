@@ -19,31 +19,25 @@ import {
   LogOut,
   Pencil,
   Plus,
-  ShieldCheck,
   Trash2,
   User,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
 import { ProjectStatus } from "../backend";
-import { useActor } from "../hooks/useActor";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useClaimFirstAdmin,
+  useCheckAdminPassword,
   useCreateArticle,
   useCreateProject,
   useDeleteArticle,
   useDeleteProject,
-  useForceResetAdmin,
   useGetAllSiteTexts,
   useGetArticles,
   useGetCreatorImageUrl,
   useGetLogoUrl,
   useGetProjects,
-  useIsAdmin,
-  useIsAdminClaimed,
   useSetCreatorImageUrl,
   useSetLogoUrl,
   useSetSiteText,
@@ -51,6 +45,10 @@ import {
   useUpdateProject,
 } from "../hooks/useQueries";
 import type { Project } from "../types/project";
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+const ADMIN_PASSWORD_KEY = "psq_admin_pw";
 
 // ─── Article Form ─────────────────────────────────────────────────────────────
 
@@ -364,9 +362,7 @@ function ProjectForm({
   );
 }
 
-// ─── Main Admin Page ─────────────────────────────────────────────────────────
-
-// ─── Site Text Field Component ───────────────────────────────────────────────
+// ─── Site Text Field ──────────────────────────────────────────────────────────
 
 function SiteTextField({
   label,
@@ -375,6 +371,7 @@ function SiteTextField({
   multiline = false,
   rows = 2,
   siteTexts,
+  adminSecret,
 }: {
   label: string;
   textKey: string;
@@ -382,12 +379,11 @@ function SiteTextField({
   multiline?: boolean;
   rows?: number;
   siteTexts: Record<string, string>;
+  adminSecret: string;
 }) {
   const [value, setValue] = useState(siteTexts[textKey] ?? "");
   const setSiteText = useSetSiteText();
   const isDirty = value !== (siteTexts[textKey] ?? "");
-
-  // Sync when siteTexts updates (e.g. after save)
   const currentBackend = siteTexts[textKey] ?? "";
 
   return (
@@ -421,7 +417,11 @@ function SiteTextField({
           }
           onClick={async () => {
             try {
-              await setSiteText.mutateAsync({ key: textKey, value });
+              await setSiteText.mutateAsync({
+                secret: adminSecret,
+                key: textKey,
+                value,
+              });
               toast.success("Saved!");
             } catch {
               toast.error("Failed to save.");
@@ -443,7 +443,7 @@ function SiteTextField({
   );
 }
 
-function SiteTextTab() {
+function SiteTextTab({ adminSecret }: { adminSecret: string }) {
   const { data: siteTexts = {} } = useGetAllSiteTexts();
 
   const sectionClass = "mb-10";
@@ -470,24 +470,28 @@ function SiteTextTab() {
             textKey="nav.concepts"
             placeholder="Concepts"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Explained"
             textKey="nav.explained"
             placeholder="Explained"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Projects"
             textKey="nav.projects"
             placeholder="Projects"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="About"
             textKey="nav.about"
             placeholder="About"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -506,6 +510,7 @@ function SiteTextTab() {
             textKey="home.hero.tagline"
             placeholder="Exploring deep ideas in science, mathematics, and technology."
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Hero Subtitle"
@@ -514,12 +519,14 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="CTA Banner Title"
             textKey="home.cta.title"
             placeholder="Explore Knowledge in Two Formats"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="CTA Banner Description"
@@ -528,24 +535,28 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Concept Articles Number"
             textKey="home.stat.concepts"
             placeholder="5+"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Explained Stories Number"
             textKey="home.stat.explained"
             placeholder="4+"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Topics Covered Number"
             textKey="home.stat.topics"
             placeholder="∞"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -564,6 +575,7 @@ function SiteTextTab() {
             textKey="concepts.title"
             placeholder="Concepts"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -572,6 +584,7 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -590,6 +603,7 @@ function SiteTextTab() {
             textKey="explained.title"
             placeholder="Explained"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -598,6 +612,7 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -616,6 +631,7 @@ function SiteTextTab() {
             textKey="projects.title"
             placeholder="Projects"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -624,12 +640,14 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Title"
             textKey="projects.empty.title"
             placeholder="Projects"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Description"
@@ -638,6 +656,7 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Subtext"
@@ -646,6 +665,7 @@ function SiteTextTab() {
             multiline
             rows={2}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -666,12 +686,14 @@ function SiteTextTab() {
             multiline
             rows={3}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Platform Paragraph 2"
             textKey="about.platform.p2"
             placeholder="Every idea on PsyQuantum is presented in two distinct formats:"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Platform Paragraph 3"
@@ -680,6 +702,7 @@ function SiteTextTab() {
             multiline
             rows={3}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 1"
@@ -688,6 +711,7 @@ function SiteTextTab() {
             multiline
             rows={3}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 2"
@@ -696,6 +720,7 @@ function SiteTextTab() {
             multiline
             rows={3}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 3"
@@ -704,12 +729,14 @@ function SiteTextTab() {
             multiline
             rows={3}
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Contact Text"
             textKey="about.contact.text"
             placeholder="Reach out on Instagram for questions, ideas, or collaboration:"
             siteTexts={siteTexts}
+            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -717,81 +744,76 @@ function SiteTextTab() {
   );
 }
 
+// ─── Main Admin Page ──────────────────────────────────────────────────────────
+
 export default function Admin() {
-  const { login, clear, loginStatus, identity } = useInternetIdentity();
-  const { actor } = useActor();
-  const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
-  useIsAdminClaimed();
+  // ── Password-based auth ──
+  const [adminSecret, setAdminSecret] = useState<string>(
+    () => sessionStorage.getItem(ADMIN_PASSWORD_KEY) ?? "",
+  );
+  const [isAdmin, setIsAdmin] = useState<boolean>(
+    () => !!sessionStorage.getItem(ADMIN_PASSWORD_KEY),
+  );
+  const [passwordInput, setPasswordInput] = useState("");
+  const checkPasswordMutation = useCheckAdminPassword();
+
+  async function handleLogin() {
+    if (!passwordInput.trim()) return;
+    try {
+      const ok = await checkPasswordMutation.mutateAsync(passwordInput.trim());
+      if (ok) {
+        sessionStorage.setItem(ADMIN_PASSWORD_KEY, passwordInput.trim());
+        setAdminSecret(passwordInput.trim());
+        setIsAdmin(true);
+        toast.success("Welcome to the admin panel!");
+      } else {
+        toast.error("Wrong password. Use: psyquantum-reset-2026");
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Login failed: ${msg}. Please wait a moment and try again.`);
+    }
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+    setAdminSecret("");
+    setIsAdmin(false);
+    setPasswordInput("");
+  }
+
+  // ── Data queries ──
   const { data: articles, isLoading: articlesLoading } = useGetArticles();
   const { data: projects, isLoading: projectsLoading } = useGetProjects();
   const { data: logoUrl } = useGetLogoUrl();
   const { data: creatorImageUrl } = useGetCreatorImageUrl();
 
+  // ── Mutations ──
   const createArticleMutation = useCreateArticle();
   const updateArticleMutation = useUpdateArticle();
   const deleteArticleMutation = useDeleteArticle();
-  const claimAdminMutation = useClaimFirstAdmin();
-  const forceResetAdminMutation = useForceResetAdmin();
-  const [resetSecret, setResetSecret] = useState("");
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
   const setLogoMutation = useSetLogoUrl();
   const setCreatorImageMutation = useSetCreatorImageUrl();
 
+  // ── UI state ──
   const [showCreateArticle, setShowCreateArticle] = useState(false);
   const [editingArticleId, setEditingArticleId] = useState<bigint | null>(null);
   const [expandedArticleId, setExpandedArticleId] = useState<bigint | null>(
     null,
   );
-
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<bigint | null>(null);
-
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [creatorImagePreview, setCreatorImagePreview] = useState<string | null>(
     null,
   );
   const creatorFileInputRef = useRef<HTMLInputElement>(null);
 
-  const isLoggedIn = !!identity;
-  const [pendingPassword, setPendingPassword] = useState("");
-  const [isAutoSetup, setIsAutoSetup] = useState(false);
-
-  // Auto reset+claim admin after login when password was entered
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run only on loginStatus/actor change
-  useEffect(() => {
-    if (loginStatus === "success" && pendingPassword && actor && !isAdmin) {
-      (async () => {
-        setIsAutoSetup(true);
-        try {
-          const ok = await forceResetAdminMutation.mutateAsync(pendingPassword);
-          if (ok) {
-            const claimed = await claimAdminMutation.mutateAsync();
-            if (claimed) {
-              toast.success("Admin access granted!");
-              setPendingPassword("");
-              window.location.reload();
-            } else {
-              toast.error(
-                "Claim failed after reset. Please reload and try again.",
-              );
-            }
-          } else {
-            toast.error("Wrong password. Please enter: psyquantum-reset-2026");
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          toast.error(`Setup failed: ${msg}`);
-        } finally {
-          setIsAutoSetup(false);
-        }
-      })();
-    }
-  }, [loginStatus, actor]);
-  const isLoggingIn = loginStatus === "logging-in";
+  // ── Helpers ──
 
   function getEditArticleInitial(article: Article): ArticleFormData {
     return {
@@ -818,6 +840,7 @@ export default function Admin() {
   async function handleCreateArticle(data: ArticleFormData) {
     try {
       await createArticleMutation.mutateAsync({
+        secret: adminSecret,
         title: data.title,
         description: data.description,
         content: data.content.filter((p) => p.trim()),
@@ -835,6 +858,7 @@ export default function Admin() {
   async function handleUpdateArticle(id: bigint, data: ArticleFormData) {
     try {
       await updateArticleMutation.mutateAsync({
+        secret: adminSecret,
         id,
         title: data.title,
         description: data.description,
@@ -853,7 +877,7 @@ export default function Admin() {
   async function handleDeleteArticle(id: bigint) {
     if (!confirm("Delete this article? This cannot be undone.")) return;
     try {
-      await deleteArticleMutation.mutateAsync(id);
+      await deleteArticleMutation.mutateAsync({ secret: adminSecret, id });
       toast.success("Article deleted.");
     } catch {
       toast.error("Failed to delete article.");
@@ -863,6 +887,7 @@ export default function Admin() {
   async function handleCreateProject(data: ProjectFormData) {
     try {
       await createProjectMutation.mutateAsync({
+        secret: adminSecret,
         title: data.title,
         description: data.description,
         status: data.status,
@@ -883,6 +908,7 @@ export default function Admin() {
   async function handleUpdateProject(id: bigint, data: ProjectFormData) {
     try {
       await updateProjectMutation.mutateAsync({
+        secret: adminSecret,
         id,
         title: data.title,
         description: data.description,
@@ -904,7 +930,7 @@ export default function Admin() {
   async function handleDeleteProject(id: bigint) {
     if (!confirm("Delete this project? This cannot be undone.")) return;
     try {
-      await deleteProjectMutation.mutateAsync(id);
+      await deleteProjectMutation.mutateAsync({ secret: adminSecret, id });
       toast.success("Project deleted.");
     } catch {
       toast.error("Failed to delete project.");
@@ -953,7 +979,10 @@ export default function Admin() {
   async function handleSaveLogo() {
     if (!logoPreview) return;
     try {
-      await setLogoMutation.mutateAsync(logoPreview);
+      await setLogoMutation.mutateAsync({
+        secret: adminSecret,
+        url: logoPreview,
+      });
       toast.success("Logo updated!");
       setLogoPreview(null);
     } catch {
@@ -972,7 +1001,10 @@ export default function Admin() {
   async function handleSaveCreatorImage() {
     if (!creatorImagePreview) return;
     try {
-      await setCreatorImageMutation.mutateAsync(creatorImagePreview);
+      await setCreatorImageMutation.mutateAsync({
+        secret: adminSecret,
+        url: creatorImagePreview,
+      });
       toast.success("Creator image updated!");
       setCreatorImagePreview(null);
     } catch {
@@ -986,7 +1018,10 @@ export default function Admin() {
     )
       return;
     try {
-      await setCreatorImageMutation.mutateAsync("");
+      await setCreatorImageMutation.mutateAsync({
+        secret: adminSecret,
+        url: "",
+      });
       toast.success("Creator image removed.");
       setCreatorImagePreview(null);
     } catch {
@@ -994,155 +1029,50 @@ export default function Admin() {
     }
   }
 
-  async function handleForceReset() {
-    if (!resetSecret.trim()) {
-      toast.error("Please enter the reset secret.");
-      return;
-    }
-    try {
-      const ok = await forceResetAdminMutation.mutateAsync(resetSecret.trim());
-      if (ok) {
-        // Auto-claim admin immediately after reset — no second step needed
-        try {
-          const claimed = await claimAdminMutation.mutateAsync();
-          if (claimed) {
-            toast.success("Admin access granted! Welcome to the admin panel.");
-            setResetSecret("");
-            window.location.reload();
-          } else {
-            toast.error(
-              "Reset succeeded but claim failed — please reload and click 'Claim Admin Access'.",
-            );
-            window.location.reload();
-          }
-        } catch (claimErr) {
-          const msg =
-            claimErr instanceof Error ? claimErr.message : String(claimErr);
-          toast.error(`Reset ok but claim error: ${msg}. Reloading…`);
-          window.location.reload();
-        }
-      } else {
-        toast.error(
-          "Incorrect reset secret. The password is: psyquantum-reset-2026",
-        );
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Reset failed: ${msg}`);
-    }
-  }
-
-  if (!isLoggedIn) {
+  // ── Login screen ──
+  if (!isAdmin) {
     return (
-      <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
-        <div className="text-center max-w-md w-full px-4">
-          <div className="w-16 h-16 rounded-2xl border border-border flex items-center justify-center mx-auto mb-6 bg-card/50">
-            <img
-              src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
-              alt="PsyQuantum"
-              className="w-full h-full object-contain block"
-            />
+      <main className="min-h-screen pt-24 pb-20 flex items-center justify-center">
+        <div className="text-center max-w-sm w-full px-4">
+          <div className="w-16 h-16 rounded-2xl border border-primary/30 flex items-center justify-center mx-auto mb-6 bg-primary/10">
+            <LogIn className="w-8 h-8 text-primary" />
           </div>
           <h1 className="font-display font-bold text-3xl text-foreground mb-2">
             Admin Panel
           </h1>
-          <p className="text-muted-foreground mb-6">
-            Enter your admin password to access the panel.
+          <p className="text-muted-foreground mb-8">
+            Enter your password to access the admin panel.
           </p>
           <div className="flex flex-col gap-3 w-full">
             <Input
               type="password"
               placeholder="Admin password"
-              value={pendingPassword}
-              onChange={(e) => setPendingPassword(e.target.value)}
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && pendingPassword.trim()) {
-                  login();
-                }
+                if (e.key === "Enter") handleLogin();
               }}
               className="text-center"
               data-ocid="admin.password.input"
+              autoFocus
             />
             <Button
               data-ocid="admin.login_button"
-              onClick={login}
-              disabled={isLoggingIn || !pendingPassword.trim()}
+              onClick={handleLogin}
+              disabled={
+                checkPasswordMutation.isPending || !passwordInput.trim()
+              }
               size="lg"
               className="gap-2 w-full"
             >
-              {isLoggingIn ? (
+              {checkPasswordMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <LogIn className="w-4 h-4" />
               )}
-              {isLoggingIn ? "Connecting..." : "Enter Admin Panel"}
-            </Button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (adminLoading) {
-    return (
-      <main className="min-h-screen pt-24 pb-20 flex items-center justify-center">
-        <Loader2
-          className="w-8 h-8 animate-spin text-primary"
-          data-ocid="admin.loading_state"
-        />
-      </main>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
-        <div className="text-center max-w-md w-full px-4">
-          <div className="w-16 h-16 rounded-2xl border border-destructive/30 flex items-center justify-center mx-auto mb-6 bg-destructive/10">
-            <ShieldCheck className="w-8 h-8 text-destructive" />
-          </div>
-          <h1 className="font-display font-bold text-3xl text-foreground mb-2">
-            Access Denied
-          </h1>
-          <p className="text-muted-foreground mb-6">
-            Your account is not the admin. Enter the admin password to take over
-            admin access.
-          </p>
-          <div className="flex flex-col gap-3 w-full">
-            <Input
-              type="password"
-              placeholder="Admin password"
-              value={resetSecret}
-              onChange={(e) => setResetSecret(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && resetSecret.trim()) handleForceReset();
-              }}
-              className="text-center"
-              data-ocid="admin.reset_secret.input"
-            />
-            <Button
-              variant="destructive"
-              size="lg"
-              onClick={handleForceReset}
-              disabled={
-                forceResetAdminMutation.isPending ||
-                isAutoSetup ||
-                !resetSecret.trim()
-              }
-              className="gap-2 w-full"
-              data-ocid="admin.reset_admin.button"
-            >
-              {forceResetAdminMutation.isPending || isAutoSetup ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="w-4 h-4" />
-              )}
-              {forceResetAdminMutation.isPending || isAutoSetup
-                ? "Setting up..."
-                : "Reclaim Admin Access"}
-            </Button>
-            <Button variant="outline" onClick={clear} className="gap-2">
-              <LogOut className="w-4 h-4" /> Logout
+              {checkPasswordMutation.isPending
+                ? "Checking..."
+                : "Enter Admin Panel"}
             </Button>
           </div>
         </div>
@@ -1167,7 +1097,13 @@ export default function Admin() {
               Admin Panel
             </h1>
           </div>
-          <Button variant="outline" size="icon" onClick={clear} title="Logout">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleLogout}
+            title="Logout"
+            data-ocid="admin.logout.button"
+          >
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
@@ -1478,7 +1414,7 @@ export default function Admin() {
                     <div className="space-y-4">
                       <div>
                         <Label className="mb-3 block">Preview</Label>
-                        <div className="w-32 h-32 rounded-xl border border-primary/40 bg-card/30 flex items-center justify-center overflow-hidden">
+                        <div className="w-32 h-32 rounded-xl border border-border bg-card/30 flex items-center justify-center overflow-hidden">
                           <img
                             src={logoPreview}
                             alt="Logo preview"
@@ -1488,7 +1424,7 @@ export default function Admin() {
                       </div>
                       <div className="flex gap-3">
                         <Button
-                          data-ocid="admin.logo_save_button"
+                          data-ocid="admin.logo.save_button"
                           onClick={handleSaveLogo}
                           disabled={setLogoMutation.isPending}
                           className="gap-2"
@@ -1498,7 +1434,7 @@ export default function Admin() {
                           )}
                           {setLogoMutation.isPending
                             ? "Saving..."
-                            : "Save Logo"}
+                            : "Update Logo"}
                         </Button>
                         <Button
                           variant="ghost"
@@ -1512,9 +1448,6 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-border" />
-
               {/* Creator Image */}
               <div>
                 <h2 className="font-display font-bold text-2xl text-foreground mb-6">
@@ -1524,12 +1457,7 @@ export default function Admin() {
                 <div className="space-y-6">
                   <div>
                     <Label className="mb-3 block">Current Creator Image</Label>
-                    <div
-                      className="w-28 h-28 rounded-full border-2 border-border bg-card/30 flex items-center justify-center overflow-hidden"
-                      style={{
-                        boxShadow: "0 0 14px 2px oklch(var(--primary) / 0.2)",
-                      }}
-                    >
+                    <div className="w-28 h-28 rounded-full border-2 border-primary/30 overflow-hidden bg-card/30 flex items-center justify-center">
                       {creatorImageUrl ? (
                         <img
                           src={creatorImageUrl}
@@ -1537,16 +1465,14 @@ export default function Admin() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-card">
-                          <User className="w-10 h-10 text-muted-foreground" />
-                        </div>
+                        <User className="w-10 h-10 text-muted-foreground" />
                       )}
                     </div>
                   </div>
 
                   <div>
                     <Label className="mb-3 block">
-                      Upload New Creator Image
+                      Upload New Creator Photo
                     </Label>
                     <input
                       ref={creatorFileInputRef}
@@ -1631,9 +1557,10 @@ export default function Admin() {
               </div>
             </div>
           </TabsContent>
+
           {/* ── Site Text Tab ── */}
           <TabsContent value="sitetext">
-            <SiteTextTab />
+            <SiteTextTab adminSecret={adminSecret} />
           </TabsContent>
         </Tabs>
       </div>

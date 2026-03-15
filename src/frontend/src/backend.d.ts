@@ -45,26 +45,29 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createArticle(title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<bigint>;
-    createProject(title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
-    deleteArticle(id: bigint): Promise<void>;
-    deleteProject(id: bigint): Promise<void>;
+    checkAdminPassword(secret: string): Promise<boolean>;
+    isCallerAdmin(): Promise<boolean>;
+    isAdminClaimed(): Promise<boolean>;
+    claimFirstAdmin(): Promise<boolean>;
+    forceResetAdmin(secret: string): Promise<boolean>;
+    createArticle(secret: string, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<bigint>;
+    createProject(secret: string, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
+    deleteArticle(secret: string, id: bigint): Promise<void>;
+    deleteProject(secret: string, id: bigint): Promise<void>;
     getArticle(id: bigint): Promise<Article>;
     getArticles(): Promise<Array<Article>>;
     getArticlesByType(articleType: ArticleType): Promise<Array<Article>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
-    getCallerUserRole(): Promise<UserRole>;
     getCreatorImageUrl(): Promise<string>;
     getLogoUrl(): Promise<string>;
     getProjects(): Promise<Array<Project>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
-    isCallerAdmin(): Promise<boolean>;
-    isAdminClaimed(): Promise<boolean>;
-    claimFirstAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    setCreatorImageUrl(url: string): Promise<void>;
-    setLogoUrl(url: string): Promise<void>;
-    updateArticle(id: bigint, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<void>;
-    updateProject(id: bigint, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<void>;
+    setCreatorImageUrl(secret: string, url: string): Promise<void>;
+    setLogoUrl(secret: string, url: string): Promise<void>;
+    getAllSiteTexts(): Promise<Array<[string, string]>>;
+    getSiteText(key: string): Promise<string>;
+    setSiteText(secret: string, key: string, value: string): Promise<void>;
+    updateArticle(secret: string, id: bigint, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<void>;
+    updateProject(secret: string, id: bigint, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<void>;
 }

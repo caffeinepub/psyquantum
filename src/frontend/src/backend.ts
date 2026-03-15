@@ -129,10 +129,10 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createArticle(title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<bigint>;
-    createProject(title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
-    deleteArticle(id: bigint): Promise<void>;
-    deleteProject(id: bigint): Promise<void>;
+    createArticle(secret: string, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<bigint>;
+    createProject(secret: string, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<bigint>;
+    deleteArticle(secret: string, id: bigint): Promise<void>;
+    deleteProject(secret: string, id: bigint): Promise<void>;
     getArticle(id: bigint): Promise<Article>;
     getArticles(): Promise<Array<Article>>;
     getArticlesByType(articleType: ArticleType): Promise<Array<Article>>;
@@ -145,13 +145,15 @@ export interface backendInterface {
     isAdminClaimed(): Promise<boolean>;
     claimFirstAdmin(): Promise<boolean>;
     forceResetAdmin(secret: string): Promise<boolean>;
+    checkAdminPassword(secret: string): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    setLogoUrl(url: string): Promise<void>;
+    setLogoUrl(secret: string, url: string): Promise<void>;
+    setCreatorImageUrl(secret: string, url: string): Promise<void>;
     getSiteText(key: string): Promise<string>;
     getAllSiteTexts(): Promise<Array<[string, string]>>;
-    setSiteText(key: string, value: string): Promise<void>;
-    updateArticle(id: bigint, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<void>;
-    updateProject(id: bigint, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<void>;
+    setSiteText(secret: string, key: string, value: string): Promise<void>;
+    updateArticle(secret: string, id: bigint, title: string, description: string, content: Array<string>, articleType: ArticleType, author: string, displayOrder: bigint): Promise<void>;
+    updateProject(secret: string, id: bigint, title: string, description: string, status: ProjectStatus, tags: Array<string>, link: string, displayOrder: bigint): Promise<void>;
 }
 import type { Article as _Article, ArticleType as _ArticleType, Project as _Project, ProjectStatus as _ProjectStatus, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -184,59 +186,59 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createArticle(arg0: string, arg1: string, arg2: Array<string>, arg3: ArticleType, arg4: string, arg5: bigint): Promise<bigint> {
+    async createArticle(arg0: string, arg1: string, arg2: string, arg3: Array<string>, arg4: ArticleType, arg5: string, arg6: bigint): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.createArticle(arg0, arg1, arg2, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg3), arg4, arg5);
+                const result = await this.actor.createArticle(arg0, arg1, arg2, arg3, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createArticle(arg0, arg1, arg2, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg3), arg4, arg5);
+            const result = await this.actor.createArticle(arg0, arg1, arg2, arg3, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
             return result;
         }
     }
-    async createProject(arg0: string, arg1: string, arg2: ProjectStatus, arg3: Array<string>, arg4: string, arg5: bigint): Promise<bigint> {
+    async createProject(arg0: string, arg1: string, arg2: string, arg3: ProjectStatus, arg4: Array<string>, arg5: string, arg6: bigint): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.createProject(arg0, arg1, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg2), arg3, arg4, arg5);
+                const result = await this.actor.createProject(arg0, arg1, arg2, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createProject(arg0, arg1, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg2), arg3, arg4, arg5);
+            const result = await this.actor.createProject(arg0, arg1, arg2, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6);
             return result;
         }
     }
-    async deleteArticle(arg0: bigint): Promise<void> {
+    async deleteArticle(arg0: string, arg1: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.deleteArticle(arg0);
+                const result = await this.actor.deleteArticle(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.deleteArticle(arg0);
+            const result = await this.actor.deleteArticle(arg0, arg1);
             return result;
         }
     }
-    async deleteProject(arg0: bigint): Promise<void> {
+    async deleteProject(arg0: string, arg1: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.deleteProject(arg0);
+                const result = await this.actor.deleteProject(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.deleteProject(arg0);
+            const result = await this.actor.deleteProject(arg0, arg1);
             return result;
         }
     }
@@ -422,6 +424,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async checkAdminPassword(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.checkAdminPassword(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.checkAdminPassword(arg0);
+            return result;
+        }
+    }
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
         if (this.processError) {
             try {
@@ -436,31 +452,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async setCreatorImageUrl(arg0: string): Promise<void> {
+    async setCreatorImageUrl(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.setCreatorImageUrl(arg0);
+                const result = await this.actor.setCreatorImageUrl(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.setCreatorImageUrl(arg0);
+            const result = await this.actor.setCreatorImageUrl(arg0, arg1);
             return result;
         }
     }
-    async setLogoUrl(arg0: string): Promise<void> {
+    async setLogoUrl(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.setLogoUrl(arg0);
+                const result = await this.actor.setLogoUrl(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.setLogoUrl(arg0);
+            const result = await this.actor.setLogoUrl(arg0, arg1);
             return result;
         }
     }
@@ -492,45 +508,45 @@ export class Backend implements backendInterface {
             return result as Array<[string, string]>;
         }
     }
-    async setSiteText(arg0: string, arg1: string): Promise<void> {
+    async setSiteText(arg0: string, arg1: string, arg2: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.setSiteText(arg0, arg1);
+                const result = await this.actor.setSiteText(arg0, arg1, arg2);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.setSiteText(arg0, arg1);
+            const result = await this.actor.setSiteText(arg0, arg1, arg2);
             return result;
         }
     }
-    async updateArticle(arg0: bigint, arg1: string, arg2: string, arg3: Array<string>, arg4: ArticleType, arg5: string, arg6: bigint): Promise<void> {
+    async updateArticle(arg0: string, arg1: bigint, arg2: string, arg3: string, arg4: Array<string>, arg5: ArticleType, arg6: string, arg7: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateArticle(arg0, arg1, arg2, arg3, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+                const result = await this.actor.updateArticle(arg0, arg1, arg2, arg3, arg4, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg5), arg6, arg7);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateArticle(arg0, arg1, arg2, arg3, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg4), arg5, arg6);
+            const result = await this.actor.updateArticle(arg0, arg1, arg2, arg3, arg4, to_candid_ArticleType_n3(this._uploadFile, this._downloadFile, arg5), arg6, arg7);
             return result;
         }
     }
-    async updateProject(arg0: bigint, arg1: string, arg2: string, arg3: ProjectStatus, arg4: Array<string>, arg5: string, arg6: bigint): Promise<void> {
+    async updateProject(arg0: string, arg1: bigint, arg2: string, arg3: string, arg4: ProjectStatus, arg5: Array<string>, arg6: string, arg7: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateProject(arg0, arg1, arg2, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6);
+                const result = await this.actor.updateProject(arg0, arg1, arg2, arg3, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateProject(arg0, arg1, arg2, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6);
+            const result = await this.actor.updateProject(arg0, arg1, arg2, arg3, to_candid_ProjectStatus_n5(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7);
             return result;
         }
     }

@@ -7,71 +7,33 @@ import Order "mo:core/Order";
 import Text "mo:core/Text";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
-
-import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
 //@formatter:off
 
 actor {
-  // ─────────────── Security ────────────────────────
-  let accessControlState = AccessControl.initState();
-  include MixinAuthorization(accessControlState);
+  // ─── Upgrade compatibility stubs (keep old stable variables) ───────────────
+  let RESET_SECRET : Text = "psyquantum-reset-2026"; // was stable in prev version
+  stable var _adminPrincipal : ?Principal = null;     // was stable in prev version
+  let accessControlState = AccessControl.initState(); // was stable in prev version
 
-  // Stable admin principal - survives upgrades and is the source of truth
-  stable var _adminPrincipal : ?Principal = null;
+  // ─────────────── Admin Auth (password-based, no Internet Identity needed) ───
+  let ADMIN_SECRET : Text = "psyquantum-reset-2026";
 
-  // Restore admin role into accessControlState after upgrade
-  system func postupgrade() {
-    // Restore siteText
-    for ((k, v) in siteTextData.vals()) {
-      siteTexts.add(k, v);
-    };
-    // Restore admin role from stable principal
-    switch (_adminPrincipal) {
-      case (?admin) {
-        accessControlState.userRoles.add(admin, #admin);
-        accessControlState.adminAssigned := true;
-      };
-      case null {};
-    };
+  func checkSecret(secret : Text) : Bool {
+    secret == ADMIN_SECRET;
   };
 
-  public query func isAdminClaimed() : async Bool {
-    _adminPrincipal != null;
+  // Verify admin password — frontend calls this to check before entering panel
+  public query func checkAdminPassword(secret : Text) : async Bool {
+    checkSecret(secret);
   };
 
-  public shared ({ caller }) func claimFirstAdmin() : async Bool {
-    // If already claimed by the same caller, treat as success (idempotent)
-    switch (_adminPrincipal) {
-      case (?existing) {
-        if (existing == caller) {
-          accessControlState.userRoles.add(caller, #admin);
-          accessControlState.adminAssigned := true;
-          return true;
-        };
-        return false;
-      };
-      case null {};
-    };
-    if (caller.isAnonymous()) { return false };
-    _adminPrincipal := ?caller;
-    accessControlState.userRoles.add(caller, #admin);
-    accessControlState.adminAssigned := true;
-    true;
-  };
-
-  // Emergency admin reset using a hardcoded secret — lets you re-claim admin when the stored
-  // principal no longer matches your current Internet Identity session.
-  let RESET_SECRET : Text = "psyquantum-reset-2026";
-
-  public shared ({ caller }) func forceResetAdmin(secret : Text) : async Bool {
-    if (caller.isAnonymous()) { return false };
-    if (secret != RESET_SECRET) { return false };
-    _adminPrincipal := null;
-    accessControlState.adminAssigned := false;
-    true;
-  };
+  // Legacy stubs kept for backward compat (always return false/no-op)
+  public query func isCallerAdmin() : async Bool { false };
+  public query func isAdminClaimed() : async Bool { true };
+  public shared func claimFirstAdmin() : async Bool { false };
+  public shared func forceResetAdmin(_secret : Text) : async Bool { false };
 
   public type UserProfile = {
     name : Text;
@@ -98,18 +60,11 @@ actor {
     logoUrl;
   };
 
-  public shared ({ caller }) func setLogoUrl(url : Text) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can change logo");
+  public shared func setLogoUrl(secret : Text, url : Text) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     logoUrl := url;
-  };
-
-  func isAdminPrincipal(caller : Principal) : Bool {
-    switch (_adminPrincipal) {
-      case (?admin) { caller == admin };
-      case null { false };
-    };
   };
 
   // ─────────────── Creator Image ───────────────────
@@ -119,9 +74,9 @@ actor {
     creatorImageUrl;
   };
 
-  public shared ({ caller }) func setCreatorImageUrl(url : Text) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can change creator image");
+  public shared func setCreatorImageUrl(secret : Text, url : Text) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     creatorImageUrl := url;
   };
@@ -132,6 +87,12 @@ actor {
 
   system func preupgrade() {
     siteTextData := siteTexts.entries().toArray();
+  };
+
+  system func postupgrade() {
+    for ((k, v) in siteTextData.vals()) {
+      siteTexts.add(k, v);
+    };
   };
 
   public query func getSiteText(key : Text) : async Text {
@@ -145,9 +106,9 @@ actor {
     siteTexts.entries().toArray();
   };
 
-  public shared ({ caller }) func setSiteText(key : Text, value : Text) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can change site text");
+  public shared func setSiteText(secret : Text, key : Text, value : Text) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     siteTexts.add(key, value);
   };
@@ -216,7 +177,8 @@ actor {
 
   seedArticles();
 
-  public shared ({ caller }) func createArticle(
+  public shared func createArticle(
+    secret : Text,
     title : Text,
     description : Text,
     content : [Text],
@@ -224,8 +186,8 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can create articles");
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     let article : Article = {
       id = nextId;
@@ -242,7 +204,8 @@ actor {
     article.id;
   };
 
-  public shared ({ caller }) func updateArticle(
+  public shared func updateArticle(
+    secret : Text,
     id : Nat,
     title : Text,
     description : Text,
@@ -251,8 +214,8 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can update articles");
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     switch (articles.get(id)) {
       case (null) { Runtime.trap("Article does not exist") };
@@ -270,9 +233,9 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteArticle(id : Nat) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can delete articles");
+  public shared func deleteArticle(secret : Text, id : Nat) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     if (not articles.containsKey(id)) {
       Runtime.trap("Article does not exist");
@@ -324,7 +287,8 @@ actor {
   let projects = Map.empty<Nat, Project>();
   var nextProjectId = 1;
 
-  public shared ({ caller }) func createProject(
+  public shared func createProject(
+    secret : Text,
     title : Text,
     description : Text,
     status : ProjectStatus,
@@ -332,8 +296,8 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can create projects");
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     let project : Project = {
       id = nextProjectId;
@@ -350,7 +314,8 @@ actor {
     project.id;
   };
 
-  public shared ({ caller }) func updateProject(
+  public shared func updateProject(
+    secret : Text,
     id : Nat,
     title : Text,
     description : Text,
@@ -359,8 +324,8 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can update projects");
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     switch (projects.get(id)) {
       case (null) { Runtime.trap("Project does not exist") };
@@ -378,9 +343,9 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteProject(id : Nat) : async () {
-    if (not isAdminPrincipal(caller)) {
-      Runtime.trap("Unauthorized only admins can delete projects");
+  public shared func deleteProject(secret : Text, id : Nat) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
     };
     if (not projects.containsKey(id)) {
       Runtime.trap("Project does not exist");

@@ -1,7 +1,14 @@
 import { SiInstagram } from "react-icons/si";
+import { useGetLogoUrl } from "../hooks/useQueries";
+
+const DEFAULT_LOGO =
+  "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const { data: logoUrl } = useGetLogoUrl();
+  const logo = logoUrl || DEFAULT_LOGO;
+
   const hostname =
     typeof window !== "undefined"
       ? encodeURIComponent(window.location.hostname)
@@ -15,7 +22,8 @@ export default function Footer() {
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 overflow-hidden rounded-lg border border-border/50">
               <img
-                src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
+                id="1q7fgha"
+                src={logo}
                 alt="PsyQuantum"
                 className="w-full h-full object-contain"
                 style={{ display: "block" }}
