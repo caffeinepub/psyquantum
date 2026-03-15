@@ -22,6 +22,22 @@ function toArticle(s: SeedArticle): Article {
   };
 }
 
+// Seed articles are always shown. Backend articles with matching IDs are ignored
+// (prevents placeholder seeding from overwriting real content). Backend articles
+// with NEW IDs (admin-added) are appended.
+function mergeWithSeed(
+  seed: SeedArticle[],
+  backendArticles: Article[],
+): Article[] {
+  const seedIds = new Set(seed.map((s) => s.id.toString()));
+  const backendOnly = backendArticles.filter(
+    (a) => !seedIds.has(a.id.toString()),
+  );
+  return [...seed.map(toArticle), ...backendOnly].sort((a, b) =>
+    Number(a.displayOrder - b.displayOrder),
+  );
+}
+
 export function useGetArticles() {
   const { actor, isFetching } = useActor();
   return useQuery<Article[]>({
@@ -30,7 +46,7 @@ export function useGetArticles() {
       if (!actor) return allSeedArticles.map(toArticle);
       try {
         const result = await actor.getArticles();
-        return result.length > 0 ? result : allSeedArticles.map(toArticle);
+        return mergeWithSeed(allSeedArticles, result);
       } catch {
         return allSeedArticles.map(toArticle);
       }
@@ -48,7 +64,7 @@ export function useGetConceptArticles() {
       if (!actor) return seedConceptArticles.map(toArticle);
       try {
         const result = await actor.getArticlesByType(ArticleType.concept);
-        return result.length > 0 ? result : seedConceptArticles.map(toArticle);
+        return mergeWithSeed(seedConceptArticles, result);
       } catch {
         return seedConceptArticles.map(toArticle);
       }
@@ -66,9 +82,7 @@ export function useGetExplainedArticles() {
       if (!actor) return seedExplainedArticles.map(toArticle);
       try {
         const result = await actor.getArticlesByType(ArticleType.explained);
-        return result.length > 0
-          ? result
-          : seedExplainedArticles.map(toArticle);
+        return mergeWithSeed(seedExplainedArticles, result);
       } catch {
         return seedExplainedArticles.map(toArticle);
       }
@@ -80,18 +94,23 @@ export function useGetExplainedArticles() {
 
 export function useGetArticle(id: bigint) {
   const { actor, isFetching } = useActor();
+  const seedArticle = allSeedArticles.find((a) => a.id === id);
   return useQuery<Article | null>({
     queryKey: ["article", id.toString()],
     queryFn: async () => {
-      const seed = allSeedArticles.find((a) => a.id === id);
-      if (!actor) return seed ? toArticle(seed) : null;
+      // Seed articles are always authoritative — no backend lookup needed
+      if (seedArticle) return toArticle(seedArticle);
+      // For admin-added articles, fetch from backend
+      if (!actor) return null;
       try {
         return await actor.getArticle(id);
       } catch {
-        return seed ? toArticle(seed) : null;
+        return null;
       }
     },
     enabled: !isFetching,
+    // Show seed article immediately while actor loads
+    placeholderData: seedArticle ? toArticle(seedArticle) : undefined,
   });
 }
 
@@ -118,7 +137,7 @@ export function useIsAdminClaimed() {
     queryFn: async () => {
       if (!actor) return false;
       try {
-        return await (actor as any).isAdminClaimed();
+        return await actor.isAdminClaimed();
       } catch {
         return false;
       }
@@ -133,7 +152,7 @@ export function useClaimFirstAdmin() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
-      return (actor as any).claimFirstAdmin();
+      return actor.claimFirstAdmin();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["isAdmin"] });
@@ -214,7 +233,7 @@ export function useDeleteArticle() {
   });
 }
 
-// ─── Logo ────────────────────────────────────────────────────────────────────
+// Logo
 
 const DEFAULT_LOGO =
   "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
@@ -251,7 +270,7 @@ export function useSetLogoUrl() {
   });
 }
 
-// ─── Creator Image ───────────────────────────────────────────────────────────
+// Creator Image
 
 export function useGetCreatorImageUrl() {
   const { actor, isFetching } = useActor();
@@ -284,7 +303,7 @@ export function useSetCreatorImageUrl() {
   });
 }
 
-// ─── Projects ────────────────────────────────────────────────────────────────
+// Projects
 
 export function useGetProjects() {
   const { actor, isFetching } = useActor();
@@ -375,7 +394,7 @@ export function useDeleteProject() {
   });
 }
 
-// ─── Site Texts ──────────────────────────────────────────────────────────────
+// Site Texts
 
 export function useGetAllSiteTexts() {
   const { actor, isFetching } = useActor();
@@ -405,6 +424,21 @@ export function useSetSiteText() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["siteTexts"] });
+    },
+  });
+}
+
+export function useForceResetAdmin() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (secret: string) => {
+      if (!actor) throw new Error("Not connected");
+      return (actor as any).forceResetAdmin(secret);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["isAdmin"] });
+      qc.invalidateQueries({ queryKey: ["isAdminClaimed"] });
     },
   });
 }

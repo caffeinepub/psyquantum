@@ -142,6 +142,9 @@ export interface backendInterface {
     getProjects(): Promise<Array<Project>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    isAdminClaimed(): Promise<boolean>;
+    claimFirstAdmin(): Promise<boolean>;
+    forceResetAdmin(secret: string): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setLogoUrl(url: string): Promise<void>;
     getSiteText(key: string): Promise<string>;
@@ -374,6 +377,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.isCallerAdmin();
+            return result;
+        }
+    }
+    async isAdminClaimed(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.isAdminClaimed();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.isAdminClaimed();
+            return result;
+        }
+    }
+    async claimFirstAdmin(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.claimFirstAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.claimFirstAdmin();
+            return result;
+        }
+    }
+    async forceResetAdmin(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.forceResetAdmin(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.forceResetAdmin(arg0);
             return result;
         }
     }

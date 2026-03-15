@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { Mail, User } from "lucide-react";
 import { SiInstagram } from "react-icons/si";
 import ScrollReveal from "../components/ScrollReveal";
 import { useGetAllSiteTexts, useGetCreatorImageUrl } from "../hooks/useQueries";
@@ -135,18 +135,29 @@ export default function About() {
             <p className="text-muted-foreground mb-6">
               {t(
                 "about.contact.text",
-                "Reach out on Instagram for questions, ideas, or collaboration:",
+                "Reach out on Instagram or email for questions, ideas, or collaboration:",
               )}
             </p>
-            <a
-              href="https://instagram.com/psi___quantam"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
-            >
-              <SiInstagram className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">@psi___quantam</span>
-            </a>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <a
+                href="https://instagram.com/psi___quantam"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <SiInstagram className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">@psi___quantam</span>
+              </a>
+              <a
+                href="mailto:piyushyadavballia751@gmail.com"
+                className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-border bg-card/50 text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <Mail className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+                <span className="font-medium">
+                  piyushyadavballia751@gmail.com
+                </span>
+              </a>
+            </div>
           </section>
         </ScrollReveal>
       </div>

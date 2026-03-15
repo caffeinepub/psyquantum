@@ -18,15 +18,58 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  // Stable admin principal - survives upgrades and is the source of truth
+  stable var _adminPrincipal : ?Principal = null;
+
+  // Restore admin role into accessControlState after upgrade
+  system func postupgrade() {
+    // Restore siteText
+    for ((k, v) in siteTextData.vals()) {
+      siteTexts.add(k, v);
+    };
+    // Restore admin role from stable principal
+    switch (_adminPrincipal) {
+      case (?admin) {
+        accessControlState.userRoles.add(admin, #admin);
+        accessControlState.adminAssigned := true;
+      };
+      case null {};
+    };
+  };
+
   public query func isAdminClaimed() : async Bool {
-    accessControlState.adminAssigned;
+    _adminPrincipal != null;
   };
 
   public shared ({ caller }) func claimFirstAdmin() : async Bool {
-    if (accessControlState.adminAssigned) { return false };
+    // If already claimed by the same caller, treat as success (idempotent)
+    switch (_adminPrincipal) {
+      case (?existing) {
+        if (existing == caller) {
+          accessControlState.userRoles.add(caller, #admin);
+          accessControlState.adminAssigned := true;
+          return true;
+        };
+        return false;
+      };
+      case null {};
+    };
     if (caller.isAnonymous()) { return false };
+    _adminPrincipal := ?caller;
     accessControlState.userRoles.add(caller, #admin);
     accessControlState.adminAssigned := true;
+    true;
+  };
+
+  // Emergency admin reset using a hardcoded secret — lets you re-claim admin when the stored
+  // principal no longer matches your current Internet Identity session.
+  let RESET_SECRET : Text = "psyquantum-reset-2026";
+
+  public shared ({ caller }) func forceResetAdmin(secret : Text) : async Bool {
+    if (caller.isAnonymous()) { return false };
+    if (secret != RESET_SECRET) { return false };
+    _adminPrincipal := null;
+    accessControlState.adminAssigned := false;
     true;
   };
 
@@ -37,23 +80,14 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
-    };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
-    };
     userProfiles.add(caller, profile);
   };
 
@@ -65,12 +99,18 @@ actor {
   };
 
   public shared ({ caller }) func setLogoUrl(url : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can change logo");
     };
     logoUrl := url;
   };
 
+  func isAdminPrincipal(caller : Principal) : Bool {
+    switch (_adminPrincipal) {
+      case (?admin) { caller == admin };
+      case null { false };
+    };
+  };
 
   // ─────────────── Creator Image ───────────────────
   stable var creatorImageUrl : Text = "";
@@ -80,7 +120,7 @@ actor {
   };
 
   public shared ({ caller }) func setCreatorImageUrl(url : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can change creator image");
     };
     creatorImageUrl := url;
@@ -92,12 +132,6 @@ actor {
 
   system func preupgrade() {
     siteTextData := siteTexts.entries().toArray();
-  };
-
-  system func postupgrade() {
-    for ((k, v) in siteTextData.vals()) {
-      siteTexts.add(k, v);
-    };
   };
 
   public query func getSiteText(key : Text) : async Text {
@@ -112,7 +146,7 @@ actor {
   };
 
   public shared ({ caller }) func setSiteText(key : Text, value : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can change site text");
     };
     siteTexts.add(key, value);
@@ -190,7 +224,7 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can create articles");
     };
     let article : Article = {
@@ -217,7 +251,7 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can update articles");
     };
     switch (articles.get(id)) {
@@ -237,7 +271,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteArticle(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can delete articles");
     };
     if (not articles.containsKey(id)) {
@@ -298,7 +332,7 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can create projects");
     };
     let project : Project = {
@@ -325,7 +359,7 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can update projects");
     };
     switch (projects.get(id)) {
@@ -345,7 +379,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteProject(id : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminPrincipal(caller)) {
       Runtime.trap("Unauthorized only admins can delete projects");
     };
     if (not projects.containsKey(id)) {

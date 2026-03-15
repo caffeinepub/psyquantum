@@ -94,9 +94,21 @@ export default function Home() {
         <section className="border-y border-border bg-card/20 py-8">
           <div className="max-w-5xl mx-auto px-4 grid grid-cols-3 gap-8 text-center">
             {[
-              { icon: Brain, label: "Concept Articles", value: "5+" },
-              { icon: Zap, label: "Explained Stories", value: "4+" },
-              { icon: Calculator, label: "Topics Covered", value: "∞" },
+              {
+                icon: Brain,
+                label: "Concept Articles",
+                value: t("home.stat.concepts", "5+"),
+              },
+              {
+                icon: Zap,
+                label: "Explained Stories",
+                value: t("home.stat.explained", "4+"),
+              },
+              {
+                icon: Calculator,
+                label: "Topics Covered",
+                value: t("home.stat.topics", "∞"),
+              },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex flex-col items-center gap-2">
                 <Icon className="w-5 h-5 text-primary" />

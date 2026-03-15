@@ -60,6 +60,8 @@ export interface backendInterface {
     getProjects(): Promise<Array<Project>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    isAdminClaimed(): Promise<boolean>;
+    claimFirstAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setCreatorImageUrl(url: string): Promise<void>;
     setLogoUrl(url: string): Promise<void>;
