@@ -24,7 +24,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
 import { ProjectStatus } from "../backend";
@@ -719,10 +719,9 @@ function SiteTextTab() {
 
 export default function Admin() {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor } = useActor();
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
-  const { data: adminClaimed, isLoading: adminClaimedLoading } =
-    useIsAdminClaimed();
+  useIsAdminClaimed();
   const { data: articles, isLoading: articlesLoading } = useGetArticles();
   const { data: projects, isLoading: projectsLoading } = useGetProjects();
   const { data: logoUrl } = useGetLogoUrl();
@@ -733,7 +732,6 @@ export default function Admin() {
   const deleteArticleMutation = useDeleteArticle();
   const claimAdminMutation = useClaimFirstAdmin();
   const forceResetAdminMutation = useForceResetAdmin();
-  const [showResetForm, setShowResetForm] = useState(false);
   const [resetSecret, setResetSecret] = useState("");
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
@@ -759,6 +757,40 @@ export default function Admin() {
   const creatorFileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!identity;
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [isAutoSetup, setIsAutoSetup] = useState(false);
+
+  // Auto reset+claim admin after login when password was entered
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run only on loginStatus/actor change
+  useEffect(() => {
+    if (loginStatus === "success" && pendingPassword && actor && !isAdmin) {
+      (async () => {
+        setIsAutoSetup(true);
+        try {
+          const ok = await forceResetAdminMutation.mutateAsync(pendingPassword);
+          if (ok) {
+            const claimed = await claimAdminMutation.mutateAsync();
+            if (claimed) {
+              toast.success("Admin access granted!");
+              setPendingPassword("");
+              window.location.reload();
+            } else {
+              toast.error(
+                "Claim failed after reset. Please reload and try again.",
+              );
+            }
+          } else {
+            toast.error("Wrong password. Please enter: psyquantum-reset-2026");
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          toast.error(`Setup failed: ${msg}`);
+        } finally {
+          setIsAutoSetup(false);
+        }
+      })();
+    }
+  }, [loginStatus, actor]);
   const isLoggingIn = loginStatus === "logging-in";
 
   function getEditArticleInitial(article: Article): ArticleFormData {
@@ -962,37 +994,6 @@ export default function Admin() {
     }
   }
 
-  async function handleClaimAdmin() {
-    try {
-      const success = await claimAdminMutation.mutateAsync();
-      if (success) {
-        toast.success("Admin access granted! You are now the admin.");
-        window.location.reload();
-      } else {
-        // Check if current user is already admin (safe try/catch around the check)
-        let alreadyAdmin = false;
-        try {
-          alreadyAdmin = (await actor?.isCallerAdmin()) ?? false;
-        } catch {
-          alreadyAdmin = false;
-        }
-        if (alreadyAdmin) {
-          toast.success("You are already the admin!");
-          window.location.reload();
-        } else {
-          toast.error(
-            "Admin was claimed by a different account. Use the reset option below to reclaim.",
-          );
-          setShowResetForm(true);
-        }
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Failed to claim admin access: ${msg}`);
-      setShowResetForm(true);
-    }
-  }
-
   async function handleForceReset() {
     if (!resetSecret.trim()) {
       toast.error("Please enter the reset secret.");
@@ -1001,12 +1002,29 @@ export default function Admin() {
     try {
       const ok = await forceResetAdminMutation.mutateAsync(resetSecret.trim());
       if (ok) {
-        toast.success("Admin reset! You can now claim admin access.");
-        setShowResetForm(false);
-        setResetSecret("");
-        window.location.reload();
+        // Auto-claim admin immediately after reset — no second step needed
+        try {
+          const claimed = await claimAdminMutation.mutateAsync();
+          if (claimed) {
+            toast.success("Admin access granted! Welcome to the admin panel.");
+            setResetSecret("");
+            window.location.reload();
+          } else {
+            toast.error(
+              "Reset succeeded but claim failed — please reload and click 'Claim Admin Access'.",
+            );
+            window.location.reload();
+          }
+        } catch (claimErr) {
+          const msg =
+            claimErr instanceof Error ? claimErr.message : String(claimErr);
+          toast.error(`Reset ok but claim error: ${msg}. Reloading…`);
+          window.location.reload();
+        }
       } else {
-        toast.error("Incorrect reset secret. Check the secret and try again.");
+        toast.error(
+          "Incorrect reset secret. The password is: psyquantum-reset-2026",
+        );
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -1017,7 +1035,7 @@ export default function Admin() {
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
-        <div className="text-center max-w-md px-4">
+        <div className="text-center max-w-md w-full px-4">
           <div className="w-16 h-16 rounded-2xl border border-border flex items-center justify-center mx-auto mb-6 bg-card/50">
             <img
               src="/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg"
@@ -1025,32 +1043,47 @@ export default function Admin() {
               className="w-full h-full object-contain block"
             />
           </div>
-          <h1 className="font-display font-bold text-3xl text-foreground mb-4">
+          <h1 className="font-display font-bold text-3xl text-foreground mb-2">
             Admin Panel
           </h1>
-          <p className="text-muted-foreground mb-8">
-            Login to manage your website.
+          <p className="text-muted-foreground mb-6">
+            Enter your admin password to access the panel.
           </p>
-          <Button
-            data-ocid="admin.login_button"
-            onClick={login}
-            disabled={isLoggingIn}
-            size="lg"
-            className="gap-2"
-          >
-            {isLoggingIn ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <LogIn className="w-4 h-4" />
-            )}
-            {isLoggingIn ? "Connecting..." : "Login with Internet Identity"}
-          </Button>
+          <div className="flex flex-col gap-3 w-full">
+            <Input
+              type="password"
+              placeholder="Admin password"
+              value={pendingPassword}
+              onChange={(e) => setPendingPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && pendingPassword.trim()) {
+                  login();
+                }
+              }}
+              className="text-center"
+              data-ocid="admin.password.input"
+            />
+            <Button
+              data-ocid="admin.login_button"
+              onClick={login}
+              disabled={isLoggingIn || !pendingPassword.trim()}
+              size="lg"
+              className="gap-2 w-full"
+            >
+              {isLoggingIn ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogIn className="w-4 h-4" />
+              )}
+              {isLoggingIn ? "Connecting..." : "Enter Admin Panel"}
+            </Button>
+          </div>
         </div>
       </main>
     );
   }
 
-  if (adminLoading || adminClaimedLoading) {
+  if (adminLoading) {
     return (
       <main className="min-h-screen pt-24 pb-20 flex items-center justify-center">
         <Loader2
@@ -1062,177 +1095,53 @@ export default function Admin() {
   }
 
   if (!isAdmin) {
-    if (!adminClaimed) {
-      return (
-        <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
-          <div className="text-center max-w-md px-4">
-            <div className="w-16 h-16 rounded-2xl border border-primary/30 flex items-center justify-center mx-auto mb-6 bg-primary/10">
-              <ShieldCheck className="w-8 h-8 text-primary" />
-            </div>
-            <h1 className="font-display font-bold text-3xl text-foreground mb-4">
-              Claim Admin Access
-            </h1>
-            <p className="text-muted-foreground mb-2">
-              No admin has been set up yet. As the site owner, click below to
-              claim admin access.
-            </p>
-            <p className="text-xs text-muted-foreground mb-8">
-              This can only be done once. After claiming, only your account will
-              have admin privileges.
-            </p>
-            <div className="flex flex-col gap-3 items-center w-full">
-              <Button
-                data-ocid="admin.claim_button"
-                onClick={handleClaimAdmin}
-                disabled={
-                  claimAdminMutation.isPending || actorFetching || !actor
-                }
-                size="lg"
-                className="gap-2"
-              >
-                {claimAdminMutation.isPending || actorFetching ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ShieldCheck className="w-4 h-4" />
-                )}
-                {claimAdminMutation.isPending
-                  ? "Claiming..."
-                  : actorFetching
-                    ? "Connecting..."
-                    : "Claim Admin Access"}
-              </Button>
-
-              {showResetForm && (
-                <div className="w-full mt-4 p-4 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3">
-                  <p className="text-sm text-destructive font-medium">
-                    Admin Reset
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Admin was previously set with a different account. Enter the
-                    reset secret to unlock and re-claim.
-                  </p>
-                  <Input
-                    type="password"
-                    placeholder="Enter reset secret"
-                    value={resetSecret}
-                    onChange={(e) => setResetSecret(e.target.value)}
-                    className="bg-card/30"
-                    data-ocid="admin.reset_secret.input"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={handleForceReset}
-                      disabled={
-                        forceResetAdminMutation.isPending || !resetSecret.trim()
-                      }
-                      className="gap-2"
-                      data-ocid="admin.reset_admin.button"
-                    >
-                      {forceResetAdminMutation.isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : null}
-                      Reset & Reclaim
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowResetForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clear}
-                className="gap-2 text-muted-foreground"
-              >
-                <LogOut className="w-4 h-4" /> Logout
-              </Button>
-            </div>
-          </div>
-        </main>
-      );
-    }
-
     return (
       <main className="min-h-screen pt-24 pb-20 flex flex-col items-center justify-center">
-        <div className="text-center max-w-md px-4">
+        <div className="text-center max-w-md w-full px-4">
           <div className="w-16 h-16 rounded-2xl border border-destructive/30 flex items-center justify-center mx-auto mb-6 bg-destructive/10">
             <ShieldCheck className="w-8 h-8 text-destructive" />
           </div>
-          <h1 className="font-display font-bold text-3xl text-foreground mb-4">
-            Not Authorized
+          <h1 className="font-display font-bold text-3xl text-foreground mb-2">
+            Access Denied
           </h1>
-          <p className="text-muted-foreground mb-2">
-            This account does not have admin access.
+          <p className="text-muted-foreground mb-6">
+            Your account is not the admin. Enter the admin password to take over
+            admin access.
           </p>
-          <p className="text-xs text-muted-foreground mb-6">
-            If you are the site owner and logged in with the wrong account, use
-            the reset option below.
-          </p>
-          <div className="flex flex-col gap-3 items-center w-full">
+          <div className="flex flex-col gap-3 w-full">
+            <Input
+              type="password"
+              placeholder="Admin password"
+              value={resetSecret}
+              onChange={(e) => setResetSecret(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && resetSecret.trim()) handleForceReset();
+              }}
+              className="text-center"
+              data-ocid="admin.reset_secret.input"
+            />
             <Button
               variant="destructive"
-              size="sm"
-              onClick={() => setShowResetForm((v) => !v)}
-              className="gap-2"
-              data-ocid="admin.show_reset.button"
+              size="lg"
+              onClick={handleForceReset}
+              disabled={
+                forceResetAdminMutation.isPending ||
+                isAutoSetup ||
+                !resetSecret.trim()
+              }
+              className="gap-2 w-full"
+              data-ocid="admin.reset_admin.button"
             >
-              <ShieldCheck className="w-4 h-4" />
-              {showResetForm ? "Hide Reset" : "Reset & Reclaim Admin"}
+              {forceResetAdminMutation.isPending || isAutoSetup ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="w-4 h-4" />
+              )}
+              {forceResetAdminMutation.isPending || isAutoSetup
+                ? "Setting up..."
+                : "Reclaim Admin Access"}
             </Button>
-
-            {showResetForm && (
-              <div className="w-full mt-2 p-4 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3">
-                <p className="text-sm text-destructive font-medium">
-                  Admin Reset
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Enter the reset secret to clear the old admin and reclaim
-                  access with your current account.
-                </p>
-                <Input
-                  type="password"
-                  placeholder="Enter reset secret"
-                  value={resetSecret}
-                  onChange={(e) => setResetSecret(e.target.value)}
-                  className="bg-card/30"
-                  data-ocid="admin.reset_secret.input"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={handleForceReset}
-                    disabled={
-                      forceResetAdminMutation.isPending || !resetSecret.trim()
-                    }
-                    className="gap-2"
-                    data-ocid="admin.reset_admin.button"
-                  >
-                    {forceResetAdminMutation.isPending ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : null}
-                    Reset & Reclaim
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowResetForm(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <Button variant="outline" onClick={clear} className="gap-2 mt-2">
+            <Button variant="outline" onClick={clear} className="gap-2">
               <LogOut className="w-4 h-4" /> Logout
             </Button>
           </div>
