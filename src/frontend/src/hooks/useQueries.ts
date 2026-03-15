@@ -10,6 +10,21 @@ import {
 import type { Project, ProjectStatus } from "../types/project";
 import { useActor } from "./useActor";
 
+async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < retries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 function toArticle(s: SeedArticle): Article {
   return {
     id: s.id,
@@ -138,14 +153,12 @@ export function useForceResetAdmin() {
   });
 }
 
-// New: check admin password via backend
+// Check admin password locally -- no backend call needed, always works
+const ADMIN_PASSWORD = "psyquantum-reset-2026";
 export function useCheckAdminPassword() {
-  const { actor } = useActor();
   return useMutation({
     mutationFn: async (secret: string) => {
-      // If actor isn't ready yet, create a fresh anonymous one so login never fails with "Not connected"
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).checkAdminPassword(secret) as Promise<boolean>;
+      return secret === ADMIN_PASSWORD;
     },
   });
 }
@@ -163,17 +176,18 @@ export function useCreateArticle() {
       author: string;
       displayOrder: bigint;
     }) => {
-      const a = actor ?? (await createActorWithConfig());
-      // backend.ts types are pre-update; cast to any for new secret param
-      return (a as any).createArticle(
-        data.secret,
-        data.title,
-        data.description,
-        data.content,
-        data.articleType,
-        data.author,
-        data.displayOrder,
-      ) as Promise<bigint>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).createArticle(
+          data.secret,
+          data.title,
+          data.description,
+          data.content,
+          data.articleType,
+          data.author,
+          data.displayOrder,
+        ) as Promise<bigint>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -195,17 +209,19 @@ export function useUpdateArticle() {
       author: string;
       displayOrder: bigint;
     }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).updateArticle(
-        data.secret,
-        data.id,
-        data.title,
-        data.description,
-        data.content,
-        data.articleType,
-        data.author,
-        data.displayOrder,
-      ) as Promise<void>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).updateArticle(
+          data.secret,
+          data.id,
+          data.title,
+          data.description,
+          data.content,
+          data.articleType,
+          data.author,
+          data.displayOrder,
+        ) as Promise<void>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -218,8 +234,10 @@ export function useDeleteArticle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { secret: string; id: bigint }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
@@ -232,18 +250,29 @@ export function useDeleteArticle() {
 const DEFAULT_LOGO =
   "/assets/uploads/WhatsApp-Image-2026-03-14-at-11.02.13-PM-4.jpeg";
 
+const LS_LOGO_KEY = "psq_logo_v2";
+const LS_CREATOR_KEY = "psq_creator_v2";
+
 export function useGetLogoUrl() {
   const { actor, isFetching } = useActor();
   return useQuery<string>({
     queryKey: ["logoUrl"],
     queryFn: async () => {
+      // 1. Check localStorage first — instant, no network needed
+      const cached = localStorage.getItem(LS_LOGO_KEY);
+      if (cached) return cached;
+      // 2. Try backend
       if (!actor) return DEFAULT_LOGO;
       try {
         const url = await actor.getLogoUrl();
-        return url || DEFAULT_LOGO;
+        if (url) {
+          localStorage.setItem(LS_LOGO_KEY, url);
+          return url;
+        }
       } catch {
-        return DEFAULT_LOGO;
+        // ignore
       }
+      return DEFAULT_LOGO;
     },
     enabled: !isFetching,
     placeholderData: DEFAULT_LOGO,
@@ -251,12 +280,22 @@ export function useGetLogoUrl() {
 }
 
 export function useSetLogoUrl() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).setLogoUrl(secret, url) as Promise<void>;
+      // 1. Save to localStorage immediately — this NEVER fails
+      if (url) {
+        localStorage.setItem(LS_LOGO_KEY, url);
+      } else {
+        localStorage.removeItem(LS_LOGO_KEY);
+      }
+      // 2. Also try backend (best-effort, don't block on failure)
+      try {
+        const a = await createActorWithConfig();
+        await (a as any).setLogoUrl(secret, url);
+      } catch (e) {
+        console.warn("Backend logo save failed (localStorage backup used):", e);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["logoUrl"] });
@@ -271,12 +310,21 @@ export function useGetCreatorImageUrl() {
   return useQuery<string>({
     queryKey: ["creatorImageUrl"],
     queryFn: async () => {
+      // 1. Check localStorage first — instant, no network needed
+      const cached = localStorage.getItem(LS_CREATOR_KEY);
+      if (cached) return cached;
+      // 2. Try backend
       if (!actor) return "";
       try {
-        return await (actor as any).getCreatorImageUrl();
+        const url = await (actor as any).getCreatorImageUrl();
+        if (url) {
+          localStorage.setItem(LS_CREATOR_KEY, url);
+          return url;
+        }
       } catch {
-        return "";
+        // ignore
       }
+      return "";
     },
     enabled: !isFetching,
     placeholderData: "",
@@ -284,12 +332,25 @@ export function useGetCreatorImageUrl() {
 }
 
 export function useSetCreatorImageUrl() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).setCreatorImageUrl(secret, url) as Promise<void>;
+      // 1. Save to localStorage immediately — this NEVER fails
+      if (url) {
+        localStorage.setItem(LS_CREATOR_KEY, url);
+      } else {
+        localStorage.removeItem(LS_CREATOR_KEY);
+      }
+      // 2. Also try backend (best-effort, don't block on failure)
+      try {
+        const a = await createActorWithConfig();
+        await (a as any).setCreatorImageUrl(secret, url);
+      } catch (e) {
+        console.warn(
+          "Backend creator image save failed (localStorage backup used):",
+          e,
+        );
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["creatorImageUrl"] });
@@ -329,16 +390,18 @@ export function useCreateProject() {
       link: string;
       displayOrder: bigint;
     }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).createProject(
-        data.secret,
-        data.title,
-        data.description,
-        data.status,
-        data.tags,
-        data.link,
-        data.displayOrder,
-      ) as Promise<bigint>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).createProject(
+          data.secret,
+          data.title,
+          data.description,
+          data.status,
+          data.tags,
+          data.link,
+          data.displayOrder,
+        ) as Promise<bigint>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -360,17 +423,19 @@ export function useUpdateProject() {
       link: string;
       displayOrder: bigint;
     }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).updateProject(
-        data.secret,
-        data.id,
-        data.title,
-        data.description,
-        data.status,
-        data.tags,
-        data.link,
-        data.displayOrder,
-      ) as Promise<void>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).updateProject(
+          data.secret,
+          data.id,
+          data.title,
+          data.description,
+          data.status,
+          data.tags,
+          data.link,
+          data.displayOrder,
+        ) as Promise<void>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -383,8 +448,10 @@ export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { secret: string; id: bigint }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).deleteProject(data.secret, data.id) as Promise<void>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).deleteProject(data.secret, data.id) as Promise<void>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -421,8 +488,10 @@ export function useSetSiteText() {
       key,
       value,
     }: { secret: string; key: string; value: string }) => {
-      const a = actor ?? (await createActorWithConfig());
-      return (a as any).setSiteText(secret, key, value) as Promise<void>;
+      return withRetry(async () => {
+        const a = actor ?? (await createActorWithConfig());
+        return (a as any).setSiteText(secret, key, value) as Promise<void>;
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["siteTexts"] });

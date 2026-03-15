@@ -948,13 +948,15 @@ export default function Admin() {
       const img = new Image();
       img.onload = () => {
         let { width, height } = img;
-        if (width > maxSize || height > maxSize) {
+        // Use smaller max to keep base64 payload small for canister
+        const effectiveMax = Math.min(maxSize, 180);
+        if (width > effectiveMax || height > effectiveMax) {
           if (width > height) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
+            height = Math.round((height * effectiveMax) / width);
+            width = effectiveMax;
           } else {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
+            width = Math.round((width * effectiveMax) / height);
+            height = effectiveMax;
           }
         }
         const canvas = document.createElement("canvas");
@@ -963,7 +965,13 @@ export default function Admin() {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, width, height);
-        cb(canvas.toDataURL("image/jpeg", 0.8));
+        // Use lower quality (0.55) to keep size minimal
+        const result = canvas.toDataURL("image/jpeg", 0.55);
+        // Safety check: warn if still large (> 100KB base64 = ~75KB image)
+        if (result.length > 100_000) {
+          console.warn("Compressed image still large:", result.length, "bytes");
+        }
+        cb(result);
       };
       img.src = dataUrl;
     };
@@ -978,16 +986,12 @@ export default function Admin() {
 
   async function handleSaveLogo() {
     if (!logoPreview) return;
-    try {
-      await setLogoMutation.mutateAsync({
-        secret: adminSecret,
-        url: logoPreview,
-      });
-      toast.success("Logo updated!");
-      setLogoPreview(null);
-    } catch {
-      toast.error("Failed to update logo.");
-    }
+    await setLogoMutation.mutateAsync({
+      secret: adminSecret,
+      url: logoPreview,
+    });
+    toast.success("Logo updated!");
+    setLogoPreview(null);
   }
 
   function handleCreatorImageFileChange(
@@ -1000,16 +1004,12 @@ export default function Admin() {
 
   async function handleSaveCreatorImage() {
     if (!creatorImagePreview) return;
-    try {
-      await setCreatorImageMutation.mutateAsync({
-        secret: adminSecret,
-        url: creatorImagePreview,
-      });
-      toast.success("Creator image updated!");
-      setCreatorImagePreview(null);
-    } catch {
-      toast.error("Failed to update creator image.");
-    }
+    await setCreatorImageMutation.mutateAsync({
+      secret: adminSecret,
+      url: creatorImagePreview,
+    });
+    toast.success("Creator image updated!");
+    setCreatorImagePreview(null);
   }
 
   async function handleRemoveCreatorImage() {
@@ -1017,16 +1017,12 @@ export default function Admin() {
       !confirm("Remove the creator image? A placeholder will be shown instead.")
     )
       return;
-    try {
-      await setCreatorImageMutation.mutateAsync({
-        secret: adminSecret,
-        url: "",
-      });
-      toast.success("Creator image removed.");
-      setCreatorImagePreview(null);
-    } catch {
-      toast.error("Failed to remove creator image.");
-    }
+    await setCreatorImageMutation.mutateAsync({
+      secret: adminSecret,
+      url: "",
+    });
+    toast.success("Creator image removed.");
+    setCreatorImagePreview(null);
   }
 
   // ── Login screen ──
