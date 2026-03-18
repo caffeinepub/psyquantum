@@ -15,6 +15,7 @@ actor {
   // ─── Upgrade compatibility stubs (keep old stable variables) ───────────────
   let RESET_SECRET : Text = "psyquantum-reset-2026"; // was stable in prev version
   stable var _adminPrincipal : ?Principal = null;     // was stable in prev version
+  stable var initialized : Bool = true;               // was stable in prev version (kept for upgrade compat)
   let accessControlState = AccessControl.initState(); // was stable in prev version
 
   // ─────────────── Admin Auth (password-based, no Internet Identity needed) ───
@@ -85,34 +86,6 @@ actor {
   stable var siteTextData : [(Text, Text)] = [];
   let siteTexts = Map.empty<Text, Text>();
 
-  system func preupgrade() {
-    siteTextData := siteTexts.entries().toArray();
-  };
-
-  system func postupgrade() {
-    for ((k, v) in siteTextData.vals()) {
-      siteTexts.add(k, v);
-    };
-  };
-
-  public query func getSiteText(key : Text) : async Text {
-    switch (siteTexts.get(key)) {
-      case (?v) { v };
-      case null { "" };
-    };
-  };
-
-  public query func getAllSiteTexts() : async [(Text, Text)] {
-    siteTexts.entries().toArray();
-  };
-
-  public shared func setSiteText(secret : Text, key : Text, value : Text) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
-    siteTexts.add(key, value);
-  };
-
   // ─────────────── Articles ────────────────────────
   public type ArticleType = {
     #concept;
@@ -136,44 +109,87 @@ actor {
     };
   };
 
+  // Stable storage for articles
+  stable var articlesData : [Article] = [];
+  stable var nextId : Nat = 1;
+
   let articles = Map.empty<Nat, Article>();
-  var nextId = 1;
-  var initialized = false;
 
-  func seedArticles() {
-    if (initialized) {
-      return;
-    };
-    initialized := true;
-    type SeedData = (Text, Text, ArticleType);
+  // ─────────────── Projects ────────────────────────
+  public type ProjectStatus = {
+    #active;
+    #inProgress;
+    #completed;
+  };
 
-    let seedData = [
-      ("Concept 1", "Short desc 1", #concept : ArticleType),
-      ("Concept 2", "Short desc 2", #concept : ArticleType),
-      ("Concept 3", "Short desc 3", #concept : ArticleType),
-      ("Concept 4", "Short desc 4", #concept : ArticleType),
-      ("Concept 5", "Short desc 5", #concept : ArticleType),
-      ("Explained 1", "Short desc 6", #explained : ArticleType),
-    ];
+  public type Project = {
+    id : Nat;
+    title : Text;
+    description : Text;
+    status : ProjectStatus;
+    tags : [Text];
+    link : Text;
+    displayOrder : Nat;
+    createdAt : Int;
+  };
 
-    for (entry in seedData.values()) {
-      let article : Article = {
-        id = nextId;
-        title = entry.0;
-        description = entry.1;
-        content = ["Placeholder content"];
-        articleType = entry.2;
-        author = "Admin";
-        createdAt = Time.now();
-        displayOrder = nextId;
-      };
-      articles.add(nextId, article);
-      nextId += 1;
+  module Project {
+    public func compareByDisplayOrder(p1 : Project, p2 : Project) : Order.Order {
+      Nat.compare(p1.displayOrder, p2.displayOrder);
     };
   };
 
-  seedArticles();
+  // Stable storage for projects
+  stable var projectsData : [Project] = [];
+  stable var nextProjectId : Nat = 1;
 
+  let projects = Map.empty<Nat, Project>();
+
+  // ─────────────── Upgrade hooks ────────────────────
+  system func preupgrade() {
+    siteTextData := siteTexts.entries().toArray();
+    articlesData := articles.values().toArray();
+    projectsData := projects.values().toArray();
+  };
+
+  system func postupgrade() {
+    for ((k, v) in siteTextData.vals()) {
+      siteTexts.add(k, v);
+    };
+    for (article in articlesData.vals()) {
+      articles.add(article.id, article);
+      if (article.id >= nextId) {
+        nextId := article.id + 1;
+      };
+    };
+    for (project in projectsData.vals()) {
+      projects.add(project.id, project);
+      if (project.id >= nextProjectId) {
+        nextProjectId := project.id + 1;
+      };
+    };
+  };
+
+  // ─────────────── Site Text API ────────────────────
+  public query func getSiteText(key : Text) : async Text {
+    switch (siteTexts.get(key)) {
+      case (?v) { v };
+      case null { "" };
+    };
+  };
+
+  public query func getAllSiteTexts() : async [(Text, Text)] {
+    siteTexts.entries().toArray();
+  };
+
+  public shared func setSiteText(secret : Text, key : Text, value : Text) : async () {
+    if (not checkSecret(secret)) {
+      Runtime.trap("Wrong password");
+    };
+    siteTexts.add(key, value);
+  };
+
+  // ─────────────── Articles API ────────────────────
   public shared func createArticle(
     secret : Text,
     title : Text,
@@ -186,8 +202,9 @@ actor {
     if (not checkSecret(secret)) {
       Runtime.trap("Wrong password");
     };
+    let id = nextId;
     let article : Article = {
-      id = nextId;
+      id;
       title;
       description;
       content;
@@ -196,9 +213,9 @@ actor {
       createdAt = Time.now();
       displayOrder;
     };
-    articles.add(nextId, article);
-    nextId += 1;
-    article.id;
+    articles.add(id, article);
+    nextId := id + 1;
+    id;
   };
 
   public shared func updateArticle(
@@ -257,33 +274,7 @@ actor {
     ).sort(Article.compareByDisplayOrder);
   };
 
-  // ─────────────── Projects ────────────────────────
-  public type ProjectStatus = {
-    #active;
-    #inProgress;
-    #completed;
-  };
-
-  public type Project = {
-    id : Nat;
-    title : Text;
-    description : Text;
-    status : ProjectStatus;
-    tags : [Text];
-    link : Text;
-    displayOrder : Nat;
-    createdAt : Int;
-  };
-
-  module Project {
-    public func compareByDisplayOrder(p1 : Project, p2 : Project) : Order.Order {
-      Nat.compare(p1.displayOrder, p2.displayOrder);
-    };
-  };
-
-  let projects = Map.empty<Nat, Project>();
-  var nextProjectId = 1;
-
+  // ─────────────── Projects API ────────────────────
   public shared func createProject(
     secret : Text,
     title : Text,
@@ -296,8 +287,9 @@ actor {
     if (not checkSecret(secret)) {
       Runtime.trap("Wrong password");
     };
+    let id = nextProjectId;
     let project : Project = {
-      id = nextProjectId;
+      id;
       title;
       description;
       status;
@@ -306,9 +298,9 @@ actor {
       displayOrder;
       createdAt = Time.now();
     };
-    projects.add(nextProjectId, project);
-    nextProjectId += 1;
-    project.id;
+    projects.add(id, project);
+    nextProjectId := id + 1;
+    id;
   };
 
   public shared func updateProject(

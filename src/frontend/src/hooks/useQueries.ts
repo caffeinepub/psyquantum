@@ -38,37 +38,78 @@ function toArticle(s: SeedArticle): Article {
   };
 }
 
-// Seed articles are always shown. Backend articles with matching IDs are ignored
-// (prevents placeholder seeding from overwriting real content). Backend articles
-// with NEW IDs (admin-added) are appended.
+// Merges hardcoded seed articles with backend articles.
+// Seed articles are always shown. Backend articles are appended after
+// deduplicating by title (case-insensitive) to avoid showing the same
+// article twice if admin re-creates a seed article.
 function mergeWithSeed(
   seed: SeedArticle[],
   backendArticles: Article[],
 ): Article[] {
-  const seedIds = new Set(seed.map((s) => s.id.toString()));
+  const seedTitles = new Set(seed.map((s) => s.title.toLowerCase().trim()));
   const backendOnly = backendArticles.filter(
-    (a) => !seedIds.has(a.id.toString()),
+    (a) => !seedTitles.has(a.title.toLowerCase().trim()),
   );
   return [...seed.map(toArticle), ...backendOnly].sort((a, b) =>
     Number(a.displayOrder - b.displayOrder),
   );
 }
 
+// localStorage key for admin-created articles (backup cache)
+const LS_ADMIN_ARTICLES_KEY = "psq_admin_articles_v3";
+
+function saveAdminArticlesToLS(articles: Article[]) {
+  try {
+    localStorage.setItem(
+      LS_ADMIN_ARTICLES_KEY,
+      JSON.stringify(
+        articles.map((a) => ({
+          ...a,
+          id: a.id.toString(),
+          displayOrder: a.displayOrder.toString(),
+          createdAt: a.createdAt.toString(),
+        })),
+      ),
+    );
+  } catch {}
+}
+
+function loadAdminArticlesFromLS(): Article[] {
+  try {
+    const raw = localStorage.getItem(LS_ADMIN_ARTICLES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return parsed.map((a: Record<string, unknown>) => ({
+      ...a,
+      id: BigInt(a.id as string),
+      displayOrder: BigInt(a.displayOrder as string),
+      createdAt: BigInt(a.createdAt as string),
+    })) as Article[];
+  } catch {
+    return [];
+  }
+}
+
+// For the admin panel — shows articles stored in the backend.
+// Always creates a fresh actor to avoid stale connection issues.
 export function useGetArticles() {
-  const { actor, isFetching } = useActor();
   return useQuery<Article[]>({
     queryKey: ["articles"],
     queryFn: async () => {
-      if (!actor) return allSeedArticles.map(toArticle);
       try {
-        const result = await actor.getArticles();
-        return mergeWithSeed(allSeedArticles, result);
-      } catch {
-        return allSeedArticles.map(toArticle);
+        const a = await createActorWithConfig();
+        const result = await a.getArticles();
+        if (result.length > 0) saveAdminArticlesToLS(result);
+        return result;
+      } catch (e) {
+        console.error("[useGetArticles] backend fetch failed:", e);
+        return loadAdminArticlesFromLS();
       }
     },
-    enabled: !isFetching,
-    placeholderData: allSeedArticles.map(toArticle),
+    placeholderData: loadAdminArticlesFromLS,
+    retry: 3,
+    retryDelay: 1000,
+    staleTime: 0,
   });
 }
 
@@ -177,7 +218,6 @@ export function useCheckAdminPassword() {
 }
 
 export function useCreateArticle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -190,8 +230,9 @@ export function useCreateArticle() {
       displayOrder: bigint;
     }) => {
       return withRetry(async () => {
-        const a = actor ?? (await createActorWithConfig());
-        return (a as any).createArticle(
+        // Always create a fresh actor to avoid stale connection issues
+        const a = await createActorWithConfig();
+        return a.createArticle(
           data.secret,
           data.title,
           data.description,
@@ -209,7 +250,6 @@ export function useCreateArticle() {
 }
 
 export function useUpdateArticle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: {
@@ -223,8 +263,8 @@ export function useUpdateArticle() {
       displayOrder: bigint;
     }) => {
       return withRetry(async () => {
-        const a = actor ?? (await createActorWithConfig());
-        return (a as any).updateArticle(
+        const a = await createActorWithConfig();
+        return a.updateArticle(
           data.secret,
           data.id,
           data.title,
@@ -243,13 +283,12 @@ export function useUpdateArticle() {
 }
 
 export function useDeleteArticle() {
-  const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { secret: string; id: bigint }) => {
       return withRetry(async () => {
-        const a = actor ?? (await createActorWithConfig());
-        return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
+        const a = await createActorWithConfig();
+        return a.deleteArticle(data.secret, data.id) as Promise<void>;
       });
     },
     onSuccess: () => {

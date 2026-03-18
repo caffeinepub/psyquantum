@@ -9,11 +9,6 @@ export default function Footer() {
   const { data: logoUrl } = useGetLogoUrl();
   const logo = logoUrl || DEFAULT_LOGO;
 
-  const hostname =
-    typeof window !== "undefined"
-      ? encodeURIComponent(window.location.hostname)
-      : "";
-
   return (
     <footer className="border-t border-border bg-card/30 mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -49,20 +44,9 @@ export default function Footer() {
             <span className="text-sm font-medium">@psi___quantam</span>
           </a>
 
-          <div className="text-center space-y-1">
+          <div className="text-center">
             <p className="text-muted-foreground text-xs">
               © {year} PsyQuantum. All rights reserved.
-            </p>
-            <p className="text-muted-foreground text-xs">
-              Built with love using{" "}
-              <a
-                href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${hostname}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                caffeine.ai
-              </a>
             </p>
           </div>
         </div>

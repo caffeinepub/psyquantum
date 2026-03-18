@@ -956,8 +956,9 @@ export default function Admin() {
       });
       toast.success("Article created!");
       setShowCreateArticle(false);
-    } catch {
-      toast.error("Failed to create article.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to create: ${msg}`);
     }
   }
 
