@@ -38,60 +38,24 @@ function toArticle(s: SeedArticle): Article {
   };
 }
 
-// Merges hardcoded seed articles with backend articles.
-// Seed articles are always shown. Backend articles are appended after
-// deduplicating by title (case-insensitive) to avoid showing the same
-// article twice if admin re-creates a seed article.
+// Seed articles are always shown. Backend articles with matching IDs are ignored
+// (prevents placeholder seeding from overwriting real content). Backend articles
+// with NEW IDs (admin-added) are appended.
 function mergeWithSeed(
   seed: SeedArticle[],
   backendArticles: Article[],
 ): Article[] {
-  const seedTitles = new Set(seed.map((s) => s.title.toLowerCase().trim()));
+  const seedIds = new Set(seed.map((s) => s.id.toString()));
+  // Also filter out backend dummy seeds (IDs 1-6 are reserved for hardcoded articles)
+  const RESERVED_IDS = new Set(["1", "2", "3", "4", "5", "6"]);
   const backendOnly = backendArticles.filter(
-    (a) => !seedTitles.has(a.title.toLowerCase().trim()),
+    (a) => !seedIds.has(a.id.toString()) && !RESERVED_IDS.has(a.id.toString()),
   );
   return [...seed.map(toArticle), ...backendOnly].sort((a, b) =>
     Number(a.displayOrder - b.displayOrder),
   );
 }
 
-// localStorage key for admin-created articles (backup cache)
-const LS_ADMIN_ARTICLES_KEY = "psq_admin_articles_v3";
-
-function saveAdminArticlesToLS(articles: Article[]) {
-  try {
-    localStorage.setItem(
-      LS_ADMIN_ARTICLES_KEY,
-      JSON.stringify(
-        articles.map((a) => ({
-          ...a,
-          id: a.id.toString(),
-          displayOrder: a.displayOrder.toString(),
-          createdAt: a.createdAt.toString(),
-        })),
-      ),
-    );
-  } catch {}
-}
-
-function loadAdminArticlesFromLS(): Article[] {
-  try {
-    const raw = localStorage.getItem(LS_ADMIN_ARTICLES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return parsed.map((a: Record<string, unknown>) => ({
-      ...a,
-      id: BigInt(a.id as string),
-      displayOrder: BigInt(a.displayOrder as string),
-      createdAt: BigInt(a.createdAt as string),
-    })) as Article[];
-  } catch {
-    return [];
-  }
-}
-
-// For the admin panel — shows articles stored in the backend.
-// Always creates a fresh actor to avoid stale connection issues.
 export function useGetArticles() {
   return useQuery<Article[]>({
     queryKey: ["articles"],
@@ -99,58 +63,51 @@ export function useGetArticles() {
       try {
         const a = await createActorWithConfig();
         const result = await a.getArticles();
-        if (result.length > 0) saveAdminArticlesToLS(result);
-        return result;
-      } catch (e) {
-        console.error("[useGetArticles] backend fetch failed:", e);
-        return loadAdminArticlesFromLS();
+        return mergeWithSeed(allSeedArticles, result);
+      } catch {
+        return allSeedArticles.map(toArticle);
       }
     },
-    placeholderData: loadAdminArticlesFromLS,
-    retry: 3,
-    retryDelay: 1000,
     staleTime: 0,
+    placeholderData: allSeedArticles.map(toArticle),
   });
 }
 
 export function useGetConceptArticles() {
-  const { actor, isFetching } = useActor();
   return useQuery<Article[]>({
     queryKey: ["articles", "concept"],
     queryFn: async () => {
-      if (!actor) return seedConceptArticles.map(toArticle);
       try {
-        const result = await actor.getArticlesByType(ArticleType.concept);
+        const a = await createActorWithConfig();
+        const result = await a.getArticlesByType(ArticleType.concept);
         return mergeWithSeed(seedConceptArticles, result);
       } catch {
         return seedConceptArticles.map(toArticle);
       }
     },
-    enabled: !isFetching,
+    staleTime: 0,
     placeholderData: seedConceptArticles.map(toArticle),
   });
 }
 
 export function useGetExplainedArticles() {
-  const { actor, isFetching } = useActor();
   return useQuery<Article[]>({
     queryKey: ["articles", "explained"],
     queryFn: async () => {
-      if (!actor) return seedExplainedArticles.map(toArticle);
       try {
-        const result = await actor.getArticlesByType(ArticleType.explained);
+        const a = await createActorWithConfig();
+        const result = await a.getArticlesByType(ArticleType.explained);
         return mergeWithSeed(seedExplainedArticles, result);
       } catch {
         return seedExplainedArticles.map(toArticle);
       }
     },
-    enabled: !isFetching,
+    staleTime: 0,
     placeholderData: seedExplainedArticles.map(toArticle),
   });
 }
 
 export function useGetArticle(id: bigint) {
-  const { actor, isFetching } = useActor();
   const seedArticle = allSeedArticles.find((a) => a.id === id);
   return useQuery<Article | null>({
     queryKey: ["article", id.toString()],
@@ -158,15 +115,15 @@ export function useGetArticle(id: bigint) {
       // Seed articles are always authoritative — no backend lookup needed
       if (seedArticle) return toArticle(seedArticle);
       // For admin-added articles, fetch from backend
-      if (!actor) return null;
       try {
-        return await actor.getArticle(id);
+        const a = await createActorWithConfig();
+        return await a.getArticle(id);
       } catch {
         return null;
       }
     },
-    enabled: !isFetching,
-    // Show seed article immediately while actor loads
+    staleTime: 0,
+    // Show seed article immediately while backend loads
     placeholderData: seedArticle ? toArticle(seedArticle) : undefined,
   });
 }
@@ -230,9 +187,9 @@ export function useCreateArticle() {
       displayOrder: bigint;
     }) => {
       return withRetry(async () => {
-        // Always create a fresh actor to avoid stale connection issues
+        // Always create a fresh connection — never reuse potentially stale actor
         const a = await createActorWithConfig();
-        return a.createArticle(
+        return (a as any).createArticle(
           data.secret,
           data.title,
           data.description,
@@ -244,7 +201,9 @@ export function useCreateArticle() {
       });
     },
     onSuccess: () => {
+      // Force immediate refetch of all article queries
       qc.invalidateQueries({ queryKey: ["articles"] });
+      qc.refetchQueries({ queryKey: ["articles"] });
     },
   });
 }
@@ -264,7 +223,7 @@ export function useUpdateArticle() {
     }) => {
       return withRetry(async () => {
         const a = await createActorWithConfig();
-        return a.updateArticle(
+        return (a as any).updateArticle(
           data.secret,
           data.id,
           data.title,
@@ -278,6 +237,7 @@ export function useUpdateArticle() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
+      qc.refetchQueries({ queryKey: ["articles"] });
     },
   });
 }
@@ -288,11 +248,12 @@ export function useDeleteArticle() {
     mutationFn: async (data: { secret: string; id: bigint }) => {
       return withRetry(async () => {
         const a = await createActorWithConfig();
-        return a.deleteArticle(data.secret, data.id) as Promise<void>;
+        return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["articles"] });
+      qc.refetchQueries({ queryKey: ["articles"] });
     },
   });
 }
@@ -419,7 +380,7 @@ export function useGetProjects() {
     queryFn: async () => {
       if (!actor) return [];
       try {
-        return await actor.getProjects();
+        return await (actor as any).getProjects();
       } catch {
         return [];
       }

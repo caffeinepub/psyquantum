@@ -444,7 +444,7 @@ function SiteTextField({
                 value,
               });
               toast.success("Saved!");
-            } catch {
+            } catch (_err) {
               toast.error("Failed to save.");
             }
           }}
@@ -957,8 +957,9 @@ export default function Admin() {
       toast.success("Article created!");
       setShowCreateArticle(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Failed to create: ${msg}`);
+      toast.error(
+        `Failed to create article: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -976,8 +977,10 @@ export default function Admin() {
       });
       toast.success("Article updated!");
       setEditingArticleId(null);
-    } catch {
-      toast.error("Failed to update article.");
+    } catch (err) {
+      toast.error(
+        `Failed to update article: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -986,8 +989,10 @@ export default function Admin() {
     try {
       await deleteArticleMutation.mutateAsync({ secret: adminSecret, id });
       toast.success("Article deleted.");
-    } catch {
-      toast.error("Failed to delete article.");
+    } catch (err) {
+      toast.error(
+        `Failed to delete article: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -1007,7 +1012,7 @@ export default function Admin() {
       });
       toast.success("Project created!");
       setShowCreateProject(false);
-    } catch {
+    } catch (_err) {
       toast.error("Failed to create project.");
     }
   }
@@ -1029,7 +1034,7 @@ export default function Admin() {
       });
       toast.success("Project updated!");
       setEditingProjectId(null);
-    } catch {
+    } catch (_err) {
       toast.error("Failed to update project.");
     }
   }
@@ -1039,7 +1044,7 @@ export default function Admin() {
     try {
       await deleteProjectMutation.mutateAsync({ secret: adminSecret, id });
       toast.success("Project deleted.");
-    } catch {
+    } catch (_err) {
       toast.error("Failed to delete project.");
     }
   }
