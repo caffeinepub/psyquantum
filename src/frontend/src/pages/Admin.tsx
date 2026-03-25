@@ -28,6 +28,8 @@ import { toast } from "sonner";
 import { type Article, ArticleType } from "../backend";
 import { ProjectStatus } from "../backend";
 import {
+  ADMIN_PASSWORD_HASH,
+  hashString,
   useCheckAdminPassword,
   useCreateArticle,
   useCreateProject,
@@ -792,6 +794,20 @@ export default function Admin() {
   const [passwordInput, setPasswordInput] = useState("");
   const [blockTimeLeft, setBlockTimeLeft] = useState<number>(0);
   const checkPasswordMutation = useCheckAdminPassword();
+
+  // Validate stored password on mount — clear if stale/wrong (e.g. old password)
+  useEffect(() => {
+    const stored = sessionStorage.getItem(ADMIN_PASSWORD_KEY);
+    if (!stored) return;
+    hashString(stored).then((h) => {
+      if (h !== ADMIN_PASSWORD_HASH) {
+        sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+        setAdminSecret("");
+        setIsAdmin(false);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Countdown timer for block
   useEffect(() => {

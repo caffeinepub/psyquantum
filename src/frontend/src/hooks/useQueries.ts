@@ -152,10 +152,15 @@ export function useForceResetAdmin() {
 }
 
 // SHA-256 hash of the admin password — plain text is never stored in source
-const ADMIN_PASSWORD_HASH =
+export const ADMIN_PASSWORD_HASH =
   "bc6d1a775f06c02b22e307bd0acfdd355d1ee8658bf46e01372d278b7b8cd9ae";
 
-async function hashString(s: string): Promise<string> {
+// Fixed internal API token sent to backend for all mutations.
+// This is SEPARATE from the user-facing admin password, so changing the password
+// never breaks backend operations.
+export const BACKEND_API_TOKEN = "psq-internal-api-k76-2026";
+
+export async function hashString(s: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(s),
@@ -190,7 +195,7 @@ export function useCreateArticle() {
         // Always create a fresh connection — never reuse potentially stale actor
         const a = await createActorWithConfig();
         return (a as any).createArticle(
-          data.secret,
+          BACKEND_API_TOKEN,
           data.title,
           data.description,
           data.content,
@@ -224,7 +229,7 @@ export function useUpdateArticle() {
       return withRetry(async () => {
         const a = await createActorWithConfig();
         return (a as any).updateArticle(
-          data.secret,
+          BACKEND_API_TOKEN,
           data.id,
           data.title,
           data.description,
@@ -248,7 +253,10 @@ export function useDeleteArticle() {
     mutationFn: async (data: { secret: string; id: bigint }) => {
       return withRetry(async () => {
         const a = await createActorWithConfig();
-        return (a as any).deleteArticle(data.secret, data.id) as Promise<void>;
+        return (a as any).deleteArticle(
+          BACKEND_API_TOKEN,
+          data.id,
+        ) as Promise<void>;
       });
     },
     onSuccess: () => {
@@ -295,7 +303,7 @@ export function useGetLogoUrl() {
 export function useSetLogoUrl() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
+    mutationFn: async ({ url }: { secret: string; url: string }) => {
       // 1. Save to localStorage immediately — this NEVER fails
       if (url) {
         localStorage.setItem(LS_LOGO_KEY, url);
@@ -305,7 +313,7 @@ export function useSetLogoUrl() {
       // 2. Also try backend (best-effort, don't block on failure)
       try {
         const a = await createActorWithConfig();
-        await (a as any).setLogoUrl(secret, url);
+        await (a as any).setLogoUrl(BACKEND_API_TOKEN, url);
       } catch (e) {
         console.warn("Backend logo save failed (localStorage backup used):", e);
       }
@@ -347,7 +355,7 @@ export function useGetCreatorImageUrl() {
 export function useSetCreatorImageUrl() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ secret, url }: { secret: string; url: string }) => {
+    mutationFn: async ({ url }: { secret: string; url: string }) => {
       // 1. Save to localStorage immediately — this NEVER fails
       if (url) {
         localStorage.setItem(LS_CREATOR_KEY, url);
@@ -357,7 +365,7 @@ export function useSetCreatorImageUrl() {
       // 2. Also try backend (best-effort, don't block on failure)
       try {
         const a = await createActorWithConfig();
-        await (a as any).setCreatorImageUrl(secret, url);
+        await (a as any).setCreatorImageUrl(BACKEND_API_TOKEN, url);
       } catch (e) {
         console.warn(
           "Backend creator image save failed (localStorage backup used):",
@@ -406,7 +414,7 @@ export function useCreateProject() {
       return withRetry(async () => {
         const a = actor ?? (await createActorWithConfig());
         return (a as any).createProject(
-          data.secret,
+          BACKEND_API_TOKEN,
           data.title,
           data.description,
           data.status,
@@ -439,7 +447,7 @@ export function useUpdateProject() {
       return withRetry(async () => {
         const a = actor ?? (await createActorWithConfig());
         return (a as any).updateProject(
-          data.secret,
+          BACKEND_API_TOKEN,
           data.id,
           data.title,
           data.description,
@@ -463,7 +471,10 @@ export function useDeleteProject() {
     mutationFn: async (data: { secret: string; id: bigint }) => {
       return withRetry(async () => {
         const a = actor ?? (await createActorWithConfig());
-        return (a as any).deleteProject(data.secret, data.id) as Promise<void>;
+        return (a as any).deleteProject(
+          BACKEND_API_TOKEN,
+          data.id,
+        ) as Promise<void>;
       });
     },
     onSuccess: () => {
@@ -497,13 +508,16 @@ export function useSetSiteText() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
-      secret,
       key,
       value,
     }: { secret: string; key: string; value: string }) => {
       return withRetry(async () => {
         const a = actor ?? (await createActorWithConfig());
-        return (a as any).setSiteText(secret, key, value) as Promise<void>;
+        return (a as any).setSiteText(
+          BACKEND_API_TOKEN,
+          key,
+          value,
+        ) as Promise<void>;
       });
     },
     onSuccess: () => {

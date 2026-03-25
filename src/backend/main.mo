@@ -18,7 +18,9 @@ actor {
   let accessControlState = AccessControl.initState(); // was stable in prev version
 
   // ─────────────── Admin Auth (password-based, no Internet Identity needed) ───
-  let ADMIN_SECRET : Text = "PsyQ@Adm!n#2026$Secure";
+  let ADMIN_SECRET : Text = "psq-internal-api-k76-2026";
+  // User-facing password (only used by checkAdminPassword for frontend login)
+  let USER_PASSWORD : Text = "PsyQ@Adm!n#2026$Secure";
 
   func checkSecret(secret : Text) : Bool {
     secret == ADMIN_SECRET;
@@ -26,7 +28,7 @@ actor {
 
   // Verify admin password — frontend calls this to check before entering panel
   public query func checkAdminPassword(secret : Text) : async Bool {
-    checkSecret(secret);
+    secret == USER_PASSWORD;
   };
 
   // Legacy stubs kept for backward compat (always return false/no-op)
