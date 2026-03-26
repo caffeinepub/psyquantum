@@ -29,6 +29,7 @@ import { type Article, ArticleType } from "../backend";
 import { ProjectStatus } from "../backend";
 import {
   ADMIN_PASSWORD_HASH,
+  friendlyError,
   hashString,
   useCheckAdminPassword,
   useCreateArticle,
@@ -51,6 +52,7 @@ import type { Project } from "../types/project";
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 const ADMIN_PASSWORD_KEY = "psq_admin_pw";
+const INTERNAL_API_TOKEN = "psq-internal-api-k76-2026";
 const BRUTE_ATTEMPTS_KEY = "psq_login_attempts";
 const BRUTE_BLOCKED_UNTIL_KEY = "psq_blocked_until";
 
@@ -394,7 +396,6 @@ function SiteTextField({
   multiline = false,
   rows = 2,
   siteTexts,
-  adminSecret,
 }: {
   label: string;
   textKey: string;
@@ -402,7 +403,6 @@ function SiteTextField({
   multiline?: boolean;
   rows?: number;
   siteTexts: Record<string, string>;
-  adminSecret: string;
 }) {
   const [value, setValue] = useState(siteTexts[textKey] ?? "");
   const setSiteText = useSetSiteText();
@@ -441,7 +441,7 @@ function SiteTextField({
           onClick={async () => {
             try {
               await setSiteText.mutateAsync({
-                secret: adminSecret,
+                secret: INTERNAL_API_TOKEN,
                 key: textKey,
                 value,
               });
@@ -466,7 +466,7 @@ function SiteTextField({
   );
 }
 
-function SiteTextTab({ adminSecret }: { adminSecret: string }) {
+function SiteTextTab() {
   const { data: siteTexts = {} } = useGetAllSiteTexts();
 
   const sectionClass = "mb-10";
@@ -493,28 +493,24 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             textKey="nav.concepts"
             placeholder="Concepts"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Explained"
             textKey="nav.explained"
             placeholder="Explained"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Projects"
             textKey="nav.projects"
             placeholder="Projects"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="About"
             textKey="nav.about"
             placeholder="About"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -533,7 +529,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             textKey="home.hero.tagline"
             placeholder="Exploring deep ideas in science, mathematics, and technology."
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Hero Subtitle"
@@ -542,14 +537,12 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="CTA Banner Title"
             textKey="home.cta.title"
             placeholder="Explore Knowledge in Two Formats"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="CTA Banner Description"
@@ -558,28 +551,24 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Concept Articles Number"
             textKey="home.stat.concepts"
             placeholder="5+"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Explained Stories Number"
             textKey="home.stat.explained"
             placeholder="4+"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Stat: Topics Covered Number"
             textKey="home.stat.topics"
             placeholder="∞"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -598,7 +587,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             textKey="concepts.title"
             placeholder="Concepts"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -607,7 +595,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -626,7 +613,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             textKey="explained.title"
             placeholder="Explained"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -635,7 +621,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -654,7 +639,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             textKey="projects.title"
             placeholder="Projects"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Page Description"
@@ -663,14 +647,12 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Title"
             textKey="projects.empty.title"
             placeholder="Projects"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Description"
@@ -679,7 +661,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Empty State Subtext"
@@ -688,7 +669,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={2}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -709,14 +689,12 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={3}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Platform Paragraph 2"
             textKey="about.platform.p2"
             placeholder="Every idea on PsyQuantum is presented in two distinct formats:"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Platform Paragraph 3"
@@ -725,7 +703,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={3}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 1"
@@ -734,7 +711,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={3}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 2"
@@ -743,7 +719,6 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={3}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Creator Paragraph 3"
@@ -752,28 +727,24 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
             multiline
             rows={3}
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Contact Text"
             textKey="about.contact.text"
             placeholder="Reach out on Instagram for questions, ideas, or collaboration:"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Instagram Handle (without @)"
             textKey="about.contact.instagram"
             placeholder="psi___quantam"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
           <SiteTextField
             label="Email Address"
             textKey="about.contact.email"
             placeholder="piyushyadavballia751@gmail.com"
             siteTexts={siteTexts}
-            adminSecret={adminSecret}
           />
         </div>
       </div>
@@ -785,7 +756,7 @@ function SiteTextTab({ adminSecret }: { adminSecret: string }) {
 
 export default function Admin() {
   // ── Password-based auth ──
-  const [adminSecret, setAdminSecret] = useState<string>(
+  const [_adminSecret, setAdminSecret] = useState<string>(
     () => sessionStorage.getItem(ADMIN_PASSWORD_KEY) ?? "",
   );
   const [isAdmin, setIsAdmin] = useState<boolean>(
@@ -962,7 +933,7 @@ export default function Admin() {
   async function handleCreateArticle(data: ArticleFormData) {
     try {
       await createArticleMutation.mutateAsync({
-        secret: adminSecret,
+        secret: INTERNAL_API_TOKEN,
         title: data.title,
         description: data.description,
         content: data.content.filter((p) => p.trim()),
@@ -973,16 +944,14 @@ export default function Admin() {
       toast.success("Article created!");
       setShowCreateArticle(false);
     } catch (err) {
-      toast.error(
-        `Failed to create article: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      toast.error(`Failed to create article: ${friendlyError(err)}`);
     }
   }
 
   async function handleUpdateArticle(id: bigint, data: ArticleFormData) {
     try {
       await updateArticleMutation.mutateAsync({
-        secret: adminSecret,
+        secret: INTERNAL_API_TOKEN,
         id,
         title: data.title,
         description: data.description,
@@ -994,28 +963,27 @@ export default function Admin() {
       toast.success("Article updated!");
       setEditingArticleId(null);
     } catch (err) {
-      toast.error(
-        `Failed to update article: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      toast.error(`Failed to update article: ${friendlyError(err)}`);
     }
   }
 
   async function handleDeleteArticle(id: bigint) {
     if (!confirm("Delete this article? This cannot be undone.")) return;
     try {
-      await deleteArticleMutation.mutateAsync({ secret: adminSecret, id });
+      await deleteArticleMutation.mutateAsync({
+        secret: INTERNAL_API_TOKEN,
+        id,
+      });
       toast.success("Article deleted.");
     } catch (err) {
-      toast.error(
-        `Failed to delete article: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      toast.error(`Failed to delete article: ${friendlyError(err)}`);
     }
   }
 
   async function handleCreateProject(data: ProjectFormData) {
     try {
       await createProjectMutation.mutateAsync({
-        secret: adminSecret,
+        secret: INTERNAL_API_TOKEN,
         title: data.title,
         description: data.description,
         status: data.status,
@@ -1028,15 +996,15 @@ export default function Admin() {
       });
       toast.success("Project created!");
       setShowCreateProject(false);
-    } catch (_err) {
-      toast.error("Failed to create project.");
+    } catch (err) {
+      toast.error(`Failed to create project: ${friendlyError(err)}`);
     }
   }
 
   async function handleUpdateProject(id: bigint, data: ProjectFormData) {
     try {
       await updateProjectMutation.mutateAsync({
-        secret: adminSecret,
+        secret: INTERNAL_API_TOKEN,
         id,
         title: data.title,
         description: data.description,
@@ -1050,18 +1018,21 @@ export default function Admin() {
       });
       toast.success("Project updated!");
       setEditingProjectId(null);
-    } catch (_err) {
-      toast.error("Failed to update project.");
+    } catch (err) {
+      toast.error(`Failed to update project: ${friendlyError(err)}`);
     }
   }
 
   async function handleDeleteProject(id: bigint) {
     if (!confirm("Delete this project? This cannot be undone.")) return;
     try {
-      await deleteProjectMutation.mutateAsync({ secret: adminSecret, id });
+      await deleteProjectMutation.mutateAsync({
+        secret: INTERNAL_API_TOKEN,
+        id,
+      });
       toast.success("Project deleted.");
-    } catch (_err) {
-      toast.error("Failed to delete project.");
+    } catch (err) {
+      toast.error(`Failed to delete project: ${friendlyError(err)}`);
     }
   }
 
@@ -1115,7 +1086,7 @@ export default function Admin() {
   async function handleSaveLogo() {
     if (!logoPreview) return;
     await setLogoMutation.mutateAsync({
-      secret: adminSecret,
+      secret: INTERNAL_API_TOKEN,
       url: logoPreview,
     });
     toast.success("Logo updated!");
@@ -1133,7 +1104,7 @@ export default function Admin() {
   async function handleSaveCreatorImage() {
     if (!creatorImagePreview) return;
     await setCreatorImageMutation.mutateAsync({
-      secret: adminSecret,
+      secret: INTERNAL_API_TOKEN,
       url: creatorImagePreview,
     });
     toast.success("Creator image updated!");
@@ -1146,7 +1117,7 @@ export default function Admin() {
     )
       return;
     await setCreatorImageMutation.mutateAsync({
-      secret: adminSecret,
+      secret: INTERNAL_API_TOKEN,
       url: "",
     });
     toast.success("Creator image removed.");
@@ -1728,7 +1699,7 @@ export default function Admin() {
 
           {/* ── Site Text Tab ── */}
           <TabsContent value="sitetext">
-            <SiteTextTab adminSecret={adminSecret} />
+            <SiteTextTab />
           </TabsContent>
         </Tabs>
       </div>

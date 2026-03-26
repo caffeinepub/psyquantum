@@ -10,7 +10,29 @@ import {
 import type { Project, ProjectStatus } from "../types/project";
 import { useActor } from "./useActor";
 
-async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+// Detect if the error is a "canister is stopped" (IC0508) error.
+export function isCanisterStopped(e: unknown): boolean {
+  const msg = String(e instanceof Error ? e.message : e);
+  return (
+    msg.includes("IC0508") ||
+    msg.includes("Canister is stopped") ||
+    msg.includes("canister is stopped")
+  );
+}
+
+export function friendlyError(e: unknown): string {
+  if (isCanisterStopped(e)) {
+    return "Server is temporarily offline. Please wait 30–60 seconds and try again. If it keeps failing, the server needs a restart.";
+  }
+  const msg = e instanceof Error ? e.message : String(e);
+  if (msg.includes("fetch") || msg.includes("Failed to fetch")) {
+    return "Network error. Check your connection and try again.";
+  }
+  return msg;
+}
+
+// Retry up to `retries` times. For stopped-canister errors, wait longer.
+async function withRetry<T>(fn: () => Promise<T>, retries = 5): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < retries; i++) {
     try {
@@ -18,7 +40,10 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
     } catch (e) {
       lastErr = e;
       if (i < retries - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+        const delay = isCanisterStopped(e)
+          ? 8000 * (i + 1) // 8s, 16s, 24s, 32s for stopped canister
+          : 1500 * (i + 1); // 1.5s, 3s, 4.5s, 6s for other errors
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
