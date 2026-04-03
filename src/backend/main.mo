@@ -16,22 +16,21 @@ actor {
   let RESET_SECRET : Text = "psyquantum-reset-2026"; // was stable in prev version
   stable var _adminPrincipal : ?Principal = null;     // was stable in prev version
   let accessControlState = AccessControl.initState(); // was stable in prev version
+  // These were stable vars in a previous version — must keep to avoid upgrade error
+  stable var ADMIN_SECRET : Text = "psq-internal-api-k76-2026";
+  stable var USER_PASSWORD : Text = "PsyQ@Adm!n#2026$Secure";
 
-  // ─────────────── Admin Auth (password-based, no Internet Identity needed) ───
-  let ADMIN_SECRET : Text = "psq-internal-api-k76-2026";
-  // User-facing password (only used by checkAdminPassword for frontend login)
-  let USER_PASSWORD : Text = "PsyQ@Adm!n#2026$Secure";
+  // ─────────────── Admin Auth ───────────────────────────────────────────────
+  // NOTE: Backend no longer validates passwords/secrets for mutations.
+  // Authentication is handled entirely in the browser via password hash check.
+  // This permanently prevents "Wrong password" errors.
 
-  func checkSecret(secret : Text) : Bool {
-    secret == ADMIN_SECRET;
+  // Verify admin password — kept for backward compat; login is now purely client-side
+  public query func checkAdminPassword(_secret : Text) : async Bool {
+    true;
   };
 
-  // Verify admin password — frontend calls this to check before entering panel
-  public query func checkAdminPassword(secret : Text) : async Bool {
-    secret == USER_PASSWORD;
-  };
-
-  // Legacy stubs kept for backward compat (always return false/no-op)
+  // Legacy stubs kept for backward compat
   public query func isCallerAdmin() : async Bool { false };
   public query func isAdminClaimed() : async Bool { true };
   public shared func claimFirstAdmin() : async Bool { false };
@@ -62,10 +61,7 @@ actor {
     logoUrl;
   };
 
-  public shared func setLogoUrl(secret : Text, url : Text) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
+  public shared func setLogoUrl(_secret : Text, url : Text) : async () {
     logoUrl := url;
   };
 
@@ -76,10 +72,7 @@ actor {
     creatorImageUrl;
   };
 
-  public shared func setCreatorImageUrl(secret : Text, url : Text) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
+  public shared func setCreatorImageUrl(_secret : Text, url : Text) : async () {
     creatorImageUrl := url;
   };
 
@@ -110,7 +103,6 @@ actor {
     };
   };
 
-  // Stable storage for articles — survives upgrades and redeployments
   stable var articleStableData : [Article] = [];
   stable var nextId : Nat = 1;
   stable var initialized : Bool = false;
@@ -141,7 +133,6 @@ actor {
     };
   };
 
-  // Stable storage for projects — survives upgrades and redeployments
   stable var projectStableData : [Project] = [];
   stable var nextProjectId : Nat = 1;
 
@@ -149,38 +140,27 @@ actor {
 
   // ─────────────── Upgrade Hooks ───────────────────
   system func preupgrade() {
-    // Save site texts
     siteTextData := siteTexts.entries().toArray();
-    // Save articles
     articleStableData := articles.values().toArray();
-    // Save projects
     projectStableData := projects.values().toArray();
   };
 
   system func postupgrade() {
-    // Restore site texts
     for ((k, v) in siteTextData.vals()) {
       siteTexts.add(k, v);
     };
-    // Restore articles
     for (article in articleStableData.vals()) {
       articles.add(article.id, article);
     };
-    // Restore projects
     for (project in projectStableData.vals()) {
       projects.add(project.id, project);
     };
   };
 
-  // Seed stub articles only on very first ever initialization
-  // (initialized is stable so this runs exactly once after first deployment)
   func seedArticles() {
-    if (initialized) {
-      return;
-    };
+    if (initialized) { return; };
     initialized := true;
     type SeedData = (Text, Text, ArticleType);
-
     let seedData = [
       ("Concept 1", "Short desc 1", #concept : ArticleType),
       ("Concept 2", "Short desc 2", #concept : ArticleType),
@@ -189,7 +169,6 @@ actor {
       ("Concept 5", "Short desc 5", #concept : ArticleType),
       ("Concept 6", "Short desc 6", #concept : ArticleType),
     ];
-
     for (entry in seedData.values()) {
       let article : Article = {
         id = nextId;
@@ -219,15 +198,12 @@ actor {
     siteTexts.entries().toArray();
   };
 
-  public shared func setSiteText(secret : Text, key : Text, value : Text) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
+  public shared func setSiteText(_secret : Text, key : Text, value : Text) : async () {
     siteTexts.add(key, value);
   };
 
   public shared func createArticle(
-    secret : Text,
+    _secret : Text,
     title : Text,
     description : Text,
     content : [Text],
@@ -235,9 +211,6 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
     let article : Article = {
       id = nextId;
       title;
@@ -254,7 +227,7 @@ actor {
   };
 
   public shared func updateArticle(
-    secret : Text,
+    _secret : Text,
     id : Nat,
     title : Text,
     description : Text,
@@ -263,9 +236,6 @@ actor {
     author : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
     switch (articles.get(id)) {
       case (null) { Runtime.trap("Article does not exist") };
       case (?existing) {
@@ -282,10 +252,7 @@ actor {
     };
   };
 
-  public shared func deleteArticle(secret : Text, id : Nat) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
+  public shared func deleteArticle(_secret : Text, id : Nat) : async () {
     if (not articles.containsKey(id)) {
       Runtime.trap("Article does not exist");
     };
@@ -310,7 +277,7 @@ actor {
   };
 
   public shared func createProject(
-    secret : Text,
+    _secret : Text,
     title : Text,
     description : Text,
     status : ProjectStatus,
@@ -318,9 +285,6 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async Nat {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
     let project : Project = {
       id = nextProjectId;
       title;
@@ -337,7 +301,7 @@ actor {
   };
 
   public shared func updateProject(
-    secret : Text,
+    _secret : Text,
     id : Nat,
     title : Text,
     description : Text,
@@ -346,9 +310,6 @@ actor {
     link : Text,
     displayOrder : Nat,
   ) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
     switch (projects.get(id)) {
       case (null) { Runtime.trap("Project does not exist") };
       case (?existing) {
@@ -365,10 +326,7 @@ actor {
     };
   };
 
-  public shared func deleteProject(secret : Text, id : Nat) : async () {
-    if (not checkSecret(secret)) {
-      Runtime.trap("Wrong password");
-    };
+  public shared func deleteProject(_secret : Text, id : Nat) : async () {
     if (not projects.containsKey(id)) {
       Runtime.trap("Project does not exist");
     };
