@@ -15,6 +15,7 @@ import Concepts from "./pages/Concepts";
 import Explained from "./pages/Explained";
 import ExplainedDetail from "./pages/ExplainedDetail";
 import Home from "./pages/Home";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Projects from "./pages/Projects";
 
 const rootRoute = createRootRoute({
@@ -70,6 +71,11 @@ const adminRoute = createRoute({
   path: "/admin",
   component: Admin,
 });
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacy",
+  component: PrivacyPolicy,
+});
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
@@ -80,6 +86,7 @@ const routeTree = rootRoute.addChildren([
   projectsRoute,
   aboutRoute,
   adminRoute,
+  privacyRoute,
 ]);
 
 const router = createRouter({ routeTree });
