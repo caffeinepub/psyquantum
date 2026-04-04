@@ -17,6 +17,7 @@ import ExplainedDetail from "./pages/ExplainedDetail";
 import Home from "./pages/Home";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Projects from "./pages/Projects";
+import TermsAndConditions from "./pages/TermsAndConditions";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -76,6 +77,11 @@ const privacyRoute = createRoute({
   path: "/privacy",
   component: PrivacyPolicy,
 });
+const termsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/terms",
+  component: TermsAndConditions,
+});
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
@@ -87,6 +93,7 @@ const routeTree = rootRoute.addChildren([
   aboutRoute,
   adminRoute,
   privacyRoute,
+  termsRoute,
 ]);
 
 const router = createRouter({ routeTree });

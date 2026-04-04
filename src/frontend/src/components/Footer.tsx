@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { SiInstagram } from "react-icons/si";
 import { useGetLogoUrl } from "../hooks/useQueries";
 
@@ -44,14 +43,6 @@ export default function Footer() {
             <SiInstagram className="w-5 h-5 group-hover:scale-110 transition-transform" />
             <span className="text-sm font-medium">@psi___quantam</span>
           </a>
-
-          {/* Privacy Policy link */}
-          <Link
-            to="/privacy"
-            className="text-muted-foreground hover:text-primary transition-colors duration-200 text-xs"
-          >
-            Privacy Policy
-          </Link>
 
           <p className="text-muted-foreground text-xs">
             © {year} PsyQuantum. All rights reserved.

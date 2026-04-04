@@ -34,6 +34,12 @@ const navBase = [
   },
 ];
 
+// Legal pages shown in both desktop dropdown and mobile menu
+const legalLinks = [
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Terms & Conditions", to: "/terms" },
+];
+
 // Show Admin link only when accessed via Caffeine draft/preview or localhost
 function isOwnerContext(): boolean {
   const host = window.location.hostname;
@@ -104,12 +110,28 @@ export default function Navbar() {
             </span>
           </Link>
 
+          {/* Desktop nav */}
           <ul className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <li key={link.to}>
                 <Link
                   to={link.to}
                   data-ocid={link.ocid}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    location.pathname === link.to
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+            {/* Legal links (desktop) */}
+            {legalLinks.map((link) => (
+              <li key={link.to}>
+                <Link
+                  to={link.to}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                     location.pathname === link.to
                       ? "text-primary bg-primary/10"
@@ -132,6 +154,7 @@ export default function Navbar() {
             )}
           </ul>
 
+          {/* Hamburger (mobile) */}
           <button
             type="button"
             className="md:hidden p-2 rounded-md text-muted-foreground hover:text-foreground transition-colors"
@@ -142,6 +165,7 @@ export default function Navbar() {
           </button>
         </div>
 
+        {/* Mobile menu */}
         {open && (
           <div className="md:hidden glass-surface border-t border-border pb-4">
             <ul className="flex flex-col gap-1 pt-2 px-2">
@@ -150,6 +174,23 @@ export default function Navbar() {
                   <Link
                     to={link.to}
                     data-ocid={link.ocid}
+                    className={`block px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                      location.pathname === link.to
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+              {/* Divider */}
+              <li className="my-1 border-t border-border/40" />
+              {/* Legal links (mobile) */}
+              {legalLinks.map((link) => (
+                <li key={link.to}>
+                  <Link
+                    to={link.to}
                     className={`block px-4 py-3 rounded-md text-sm font-medium transition-colors ${
                       location.pathname === link.to
                         ? "text-primary bg-primary/10"
