@@ -748,6 +748,358 @@ function SiteTextTab() {
           />
         </div>
       </div>
+
+      <div className="border-t border-border" />
+
+      {/* Privacy Policy */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Privacy Policy Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Last Updated Date"
+            textKey="privacy.lastUpdated"
+            placeholder="April 4, 2026"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 01 Title"
+            textKey="privacy.s01.title"
+            placeholder="Introduction"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 01 Body"
+            textKey="privacy.s01.body"
+            placeholder="Welcome to PsyQuantum..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 02 Title"
+            textKey="privacy.s02.title"
+            placeholder="Information We Collect"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 02 Body"
+            textKey="privacy.s02.body"
+            placeholder="PsyQuantum does not require you to create an account..."
+            multiline
+            rows={8}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 03 Title"
+            textKey="privacy.s03.title"
+            placeholder="How We Use Information"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 03 Body"
+            textKey="privacy.s03.body"
+            placeholder="The information collected through analytics is used only..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 04 Title"
+            textKey="privacy.s04.title"
+            placeholder="Third-Party Services"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 04 Body"
+            textKey="privacy.s04.body"
+            placeholder="PsyQuantum uses the following third-party services..."
+            multiline
+            rows={8}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 05 Title"
+            textKey="privacy.s05.title"
+            placeholder="Cookies Policy"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 05 Body"
+            textKey="privacy.s05.body"
+            placeholder="Cookies are small text files..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 06 Title"
+            textKey="privacy.s06.title"
+            placeholder="Data Protection and Security"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 06 Body"
+            textKey="privacy.s06.body"
+            placeholder="PsyQuantum takes reasonable steps..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 07 Title"
+            textKey="privacy.s07.title"
+            placeholder="Your Rights"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 07 Body"
+            textKey="privacy.s07.body"
+            placeholder="Even though PsyQuantum does not directly collect..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 08 Title"
+            textKey="privacy.s08.title"
+            placeholder="Children's Information"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 08 Body"
+            textKey="privacy.s08.body"
+            placeholder="PsyQuantum is an educational platform..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 09 Title"
+            textKey="privacy.s09.title"
+            placeholder="Changes to This Policy"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 09 Body"
+            textKey="privacy.s09.body"
+            placeholder="We may update this Privacy Policy from time to time..."
+            multiline
+            rows={4}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 10 Title"
+            textKey="privacy.s10.title"
+            placeholder="Contact Information"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 10 Body"
+            textKey="privacy.s10.body"
+            placeholder="If you have any questions..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Email"
+            textKey="privacy.contactEmail"
+            placeholder="piyushyadavballia751@gmail.com"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Instagram Handle"
+            textKey="privacy.contactInstagram"
+            placeholder="@psi___quantam"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Instagram URL"
+            textKey="privacy.contactInstagramUrl"
+            placeholder="https://instagram.com/psi___quantam"
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Terms & Conditions */}
+      <div className={sectionClass} style={{ paddingTop: "2rem" }}>
+        <h2 className={headingClass}>
+          <span className="w-1 h-6 rounded-full bg-primary flex-shrink-0" />
+          Terms &amp; Conditions Page
+        </h2>
+        <div className={fieldGridClass}>
+          <SiteTextField
+            label="Last Updated Date"
+            textKey="terms.lastUpdated"
+            placeholder="April 4, 2026"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 01 Title"
+            textKey="terms.s01.title"
+            placeholder="Acceptance of Terms"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 01 Body"
+            textKey="terms.s01.body"
+            placeholder="By accessing or using PsyQuantum..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 02 Title"
+            textKey="terms.s02.title"
+            placeholder="Use of Content"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 02 Body"
+            textKey="terms.s02.body"
+            placeholder="All content published on PsyQuantum..."
+            multiline
+            rows={8}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 03 Title"
+            textKey="terms.s03.title"
+            placeholder="Intellectual Property Rights"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 03 Body"
+            textKey="terms.s03.body"
+            placeholder="All content on PsyQuantum..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 04 Title"
+            textKey="terms.s04.title"
+            placeholder="Educational Disclaimer"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 04 Body"
+            textKey="terms.s04.body"
+            placeholder="All content on PsyQuantum is created purely for educational..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 05 Title"
+            textKey="terms.s05.title"
+            placeholder="Limitation of Liability"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 05 Body"
+            textKey="terms.s05.body"
+            placeholder="To the maximum extent permitted by law..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 06 Title"
+            textKey="terms.s06.title"
+            placeholder="External Links Disclaimer"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 06 Body"
+            textKey="terms.s06.body"
+            placeholder="PsyQuantum may contain links to external websites..."
+            multiline
+            rows={4}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 07 Title"
+            textKey="terms.s07.title"
+            placeholder="Changes to Terms"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 07 Body"
+            textKey="terms.s07.body"
+            placeholder="PsyQuantum reserves the right to update..."
+            multiline
+            rows={4}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 08 Title"
+            textKey="terms.s08.title"
+            placeholder="Termination"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 08 Body"
+            textKey="terms.s08.body"
+            placeholder="PsyQuantum reserves the right to restrict or terminate access..."
+            multiline
+            rows={6}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 09 Title"
+            textKey="terms.s09.title"
+            placeholder="Governing Law"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 09 Body"
+            textKey="terms.s09.body"
+            placeholder="These Terms and Conditions are governed by..."
+            multiline
+            rows={4}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 10 Title"
+            textKey="terms.s10.title"
+            placeholder="Contact Information"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Section 10 Body"
+            textKey="terms.s10.body"
+            placeholder="If you have any questions, concerns, or requests..."
+            multiline
+            rows={3}
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Email"
+            textKey="terms.contactEmail"
+            placeholder="piyushyadavballia751@gmail.com"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Instagram Handle"
+            textKey="terms.contactInstagram"
+            placeholder="@psi___quantam"
+            siteTexts={siteTexts}
+          />
+          <SiteTextField
+            label="Contact Instagram URL"
+            textKey="terms.contactInstagramUrl"
+            placeholder="https://instagram.com/psi___quantam"
+            siteTexts={siteTexts}
+          />
+        </div>
+      </div>
     </div>
   );
 }
